@@ -68,3 +68,25 @@ Basis: v1.0.3 (67751f8, unverändert)
 | Piper (TTS) | ✅ lokal | Binary + Modell funktionsfähig, WAV-Erzeugung OK |
 | Voice-VM-Test | ⚠️ | Kein multipass/lima |
 | Arch-Test | ⚠️ | Kein qemu-aarch64 |
+
+## Endzustand 2026-10-22T13:17:40Z
+
+- Branch: v1.0.4-pending-work
+- HEAD: b43e4d1
+- v1.0.3 unverändert: Tag-Objekt 2c71343 → Commit 67751f8
+- Working Tree: clean=no
+
+### Abgeschlossen
+- Backup: scripts/backup.sh syntaktisch ok, forgejo-Dump vorhanden, 4 Volumes, Manifest + SHA256.
+- forgejo: 121 Tabellen, Migration abgeschlossen.
+- Whisper (STT): lokal ✅, Healthcheck /docs 200.
+- Piper (TTS): lokal ✅, WAV erzeugt (78.5 KB, 16-bit mono 22050 Hz).
+
+### Ehrlich offen (Infrastruktur, nicht Code)
+- Voice-VM-Test: keine VM auf Host (kein multipass/lima).
+- Arch-Test: kein qemu-aarch64.
+
+### Entscheidung
+- Kein v1.0.4-Tag. v1.0.3 bleibt 67751f8.
+- Badge bleibt stable (voice unverified) bis VM-Test vorliegt.
+- Nächster Schritt: multipass/lima installieren oder qemu-x86 für Voice-Integrationstest nutzen.
