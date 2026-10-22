@@ -1,4 +1,6 @@
-# Architektur: Client vs. VPS
+# Architektur: Client vs. VPS — **BETA**
+
+> ⚠️ **BETA STATUS**: Der Client-Stack wurde nicht auf einer frischen VM verifiziert (siehe `docs/legacy/verification-v1.0.2.md`).
 
 ## Kernprinzip: **Client-First**
 

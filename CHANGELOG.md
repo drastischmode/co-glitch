@@ -53,15 +53,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - New: 04-VPS-OPTIONAL.md, 05-BACKUP-RESTORE.md, 06-UPDATES.md, 07-SECURITY.md, 08-AI-PROVIDER.md
 - Audit Report: docs/legacy/audit-2026-10-22.md
 
-## [1.0.1] - 2026-10-22
+## [1.0.1-beta] - 2026-10-22
 
-### Fixed
+### Changed
+- Status von "production-ready" auf **"beta" herabgestuft** (Fresh-Machine-Onboarding nicht auf echter VM verifiziert)
 - Claim-Matrix in Verification-Report: Zählung korrigiert (17 Claims = 16 ✅ + 1 ❌ statt fälschlich "15+1=16")
 - Verification-Report: Ehrliche Angabe zu Fresh-Machine-Tests (nur Konfigurations-Validierung, keine echten VMs)
 - client-health-check.sh: UFW-inaktiv wird als FAIL behandelt (war bereits implementiert, wurde in v1.0.0 nicht auf echter VM geprüft)
-
-### Changed
 - v1.0.0 als „superseded" markiert (enthielt unbelegte Fresh-Machine-Behauptungen und Docker-Container-Tests statt echter VMs)
+- Alle "production-ready" / "verifiziert" / "produktionsreif" Aussagen in Docs entfernt/korrigiert
+
+### Warning
+- **Der primäre Onboarding-Pfad (`make client-setup` → `make up-client` → `make client-health`) wurde NICHT auf einer frischen VM getestet.**
+- Nutzung auf eigenes Risiko. Ein echter Fresh-Machine-Test auf Ubuntu 24.04 / Arch VM ist ausstehend.
+- Siehe `docs/legacy/verification-v1.0.2.md` für ehrliche Test-Matrix.
 
 ## [1.0.0] - 2026-10-22
 

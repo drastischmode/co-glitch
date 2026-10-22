@@ -1,4 +1,6 @@
-# co-glitch Quickstart (Client-First)
+# co-glitch Quickstart (Client-First) — **BETA**
+
+> ⚠️ **BETA STATUS**: Der primäre Onboarding-Pfad (`make client-setup` → `make up-client` → `make client-health`) wurde **NICHT auf einer frischen VM getestet**. Nutzung auf eigenes Risiko.
 
 ## Voraussetzungen
 - **Client**: Arch Linux, Manjaro, EndeavourOS, Ubuntu, Debian, Linux Mint, Pop!_OS

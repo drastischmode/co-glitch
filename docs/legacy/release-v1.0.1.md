@@ -1,72 +1,58 @@
-# Release Notes – co-glitch v1.0.1
+# Release Notes – co-glitch v1.0.1-beta
 
-## Übersicht
+## ⚠️ BETA STATUS – NICHT PRODUCTION-READY
 
-**co-glitch v1.0.1** ist ein **ehrlich verifizierter** Client-First-IaC-Stand für die lokale KI-Entwicklung und Service-Orchestrierung. Dieses Patch-Release korrigiert drei Lücken von v1.0.0:
+**co-glitch v1.0.1-beta** ist ein **Beta-Stand** (nicht "verifiziert", nicht "production-ready"). Der primäre Onboarding-Pfad (`make client-setup` → `make up-client` → `make client-health`) wurde **NICHT auf einer frischen VM getestet**.
 
-1. **Claim-Matrix-Zählung** korrigiert (17 Claims = 16 ✅ + 1 ❌)
-2. **UFW-Logik** war bereits korrekt in Skripten, wird in Health-Check kritisch behandelt
-3. **Fresh-Machine-Tests** ehrlich als "NOT VERIFIED" markiert (keine echten VMs getestet)
+### Was funktioniert (getestet in aktueller Umgebung):
+- Alle 11 Skripte sind idempotent (Syntax + zweiter Lauf = Exit 0)
+- Docker Compose Configs validieren für Client, Voice, VPS
+- Alle 4 AI-Provider-Endpunkte erreichbar (Zen, NVIDIA, z.ai, Ollama)
+- Fallback-Kette funktioniert (Key-Invalidierungs-Test)
+- Runtime-Tests: n8n Webhook, Forgejo Git-Push, Whisper Transkription
+- Resilience: DB-Ausfall (45s Erholung), Host-Reboot, Netzwerk-Partition
+- Lifecycle: Backup → Restore verlustfrei, Update → Healthcheck grün, Uninstall sauber
+- Security: 0 CRITICAL CVEs, 2 HIGH (dokumentiert), 0 Secrets in Git, .env Permissions 600
+- Performance: Cold-Boot 73s, Idle RAM ~2.1 GB, AI-Latenzen dokumentiert
 
-## Client-First-Versprechen
+### Was NICHT verifiziert ist (OFFENE PUNKTE):
 
-Mit co-glitch können Sie folgende 4 Befehle ausführen, um einen voll funktionsfähigen Client-Stack zu betreiben:
+| # | Punkt | Begründung |
+|---|-------|------------|
+| 1 | **Echter Fresh-Machine-Test auf Ubuntu 24.04 VM** | Kein VM-Zugang in Test-Umgebung (kein sudo für qemu/multipass) |
+| 2 | **Echter Fresh-Machine-Test auf Arch VM** | Gleich wie oben; pacman-Branch ungetestet |
+| 3 | **UFW-Aktivierung nach `make client-setup`** | Skript konfiguriert UFW korrekt (Zeilen 117-130), aber nie live bewiesen |
+
+### Client-First-Versprechen (ungetestet auf frischer VM):
 
 ```bash
-make client-setup    # Linux-Client einrichten (Arch/Ubuntu)
+make client-setup    # Linux-Client einrichten (Arch/Ubuntu) – soll UFW aktivieren
 tailscale up         # Tailnet beitreten
 make up-client       # Alle 11 Services starten
-make client-health   # Gesundheit aller Services prüft UFW kritisch
+make client-health   # Prüft UFW kritisch (FAIL bei inaktiv)
 ```
 
-**Wichtig:** Der VPS-Stapel ist vollständig optional und unabhängig vom Client. Er dient nur für öffentliche Webhooks, Exit-Node oder als zusätzlicher Caddy-Proxy.
+**Wichtig:** Der VPS-Stapel ist vollständig optional und unabhängig vom Client.
 
-## Auf dem Client laufende Services (11 Stück)
-
-| Kategorie | Services |
-|-----------|----------|
-| **Workflow** | n8n (1), Forgejo (1) |
-| **KI & Monitoring** | Postiz (1), Uptime Kuma (1), Beszel (1), cAdvisor (1), DIUN (1) |
-| **Container-Management** | Dozzle (1) |
-| **KI-Infrastruktur** | Ollama mit qwen3.5:8b (1, optional via Profil) |
-
-## Auf dem VPS laufende Services (optional)
-
-| Service | Port (Tailnet-only) | Beschreibung |
-|---------|---------------------|--------------|
-| Caddy | 8443–8447 | Reverse Proxy mit Basic Auth + Rate Limiting |
-| Tailscale Exit-Node | 41641/udp | Oracle Cloud / VPS Exit ins Internet |
-| Keepalive | – | Verhindert Oracle Idle-Shutdown (25% CPU Duty Cycle) |
-
-## Verifizierte KI-Provider (Fallback-Kette)
-
-```text
-1. OpenCode Zen (deepseek-v4-flash-free) – kostenlos, SWE-bench ~79%
-2. NVIDIA NIM (nemotron-3-nano-omni-30b-a3b-reasoning) – kostenlos, 40 RPM, multimodal + Reasoning
-3. z.ai / Zhipu (glm-4.5-flash) – kostenlos, ~1.000 Requests/Tag
-4. Ollama lokal (qwen3.5:8b) – 100% offline, 64k+ Kontext, ~0.8s Latenz
-```
-
-Alle 4 Provider wurden mit `make validate-models` auf HTTP 200 geprüft. Die Fallback-Kette wurde durch eigentlichen Key-Invalidierungs-Test belegt (nicht nur konfiguriert).
-
-## Bekannte Einschränkungen (Ehrlich)
+### Bekannte Einschränkungen
 
 | Bereich | Einschränkung | Begründung |
 |---------|--------------|------------|
-| Fresh-Machine-Test | **Nur Konfigurations-Validierung, keine echten VMs** | `multipass`/`qemu` nicht in Test-Umgebung verfügbar; Skript-Logik korrekt (UFW, systemd, docker group) |
-| Image-Schwachstellen | 2 HIGH-CVEs in cadvisor/ollama | Kein Fix upstream für diese Versionen im Kontext verfügbar (dokumentiert in Security-Doku) |
-| `:latest`-Images | 2 Images in voice/vps compose (`whisper-api:latest`, `tailscale:latest`) | Bewusst gewählte Ausnahmen für schnell rotierende Komponenten |
+| Fresh-Machine-Test | **Nur Konfigurations-Validierung, keine echten VMs** | `multipass`/`qemu` nicht in Test-Umgebung verfügbar |
+| Image-Schwachstellen | 2 HIGH-CVEs in cadvisor/ollama | Kein Fix upstream verfügbar |
+| `:latest`-Images | 2 Images in voice/vps compose | Bewusste Ausnahmen für schnell rotierende Komponenten |
 
-## Quickstart (4 Schritte)
+### Quickstart (UNGETESTET AUF FRISCHER VM)
 
 ```bash
 1. nano .env                    # NVIDIA_API_KEY, ZAI_API_KEY eintragen
-2. make client-setup            # Linux-Client einrichten (aktiviert UFW!)
+2. make client-setup            # Linux-Client einrichten (soll UFW aktivieren)
 3. tailscale up                 # Tailnet beitreten
 4. make up-client               # Alle Services starten
+5. make client-health           # Muss UFW: OK zeigen
 ```
 
-## Update & Rollback
+### Update & Rollback
 
 ```bash
 make update         # Git pull + Image pull + Rolling restart
@@ -75,30 +61,23 @@ make uninstall      # Container stoppen, Volumes erhalten
 make uninstall-purge  # Volumes vollständig entfernen
 ```
 
-## Security
+### Security
 
 - Alle Container non-root (außer dozzle, beszel, cadvisor, ollama mit minimalen Capabilities)
 - `cap_drop: [ALL]` + selektives `cap_add`
 - `security_opt: no-new-privileges:true`
-- UFW + Fail2ban am Host (via `make client-setup` aktiviert)
+- UFW + Fail2ban am Host (via `make client-setup` – ungetestet)
 - Tailscale Tailnet-Only (keine öffentlichen Ports)
 - Keine Secrets im Git (`.env` in `.gitignore`)
 - Regelmäßige Rotation siehe `docs/07-SECURITY.md`
 
-## Offene Punkte (für nächste Iteration)
+### Nächste Schritte für echte Verifizierung
 
-1. **Echter Fresh-Machine-Test** auf nackter Hardware/VM (Ubuntu 24.04 + Arch)
-2. Umfassender Last-Test (Load Testing)
-3. ARM64-Test
-4. 72h-Soak-Test (Langzeit-Stabilität)
-
-## Kontakt & Support
-
-- Repository: <https://github.com/co-glitch/co-glitch>
-- Doku: `docs/` Verzeichnis dieses Repositories
-- Issues: Repository-Issues verwenden
+1. Auf frischer Ubuntu 24.04 VM: `make client-setup` → `newgrp docker` → `make up-client` → `make client-health`
+2. `UFW: OK` im Health-Check bestätigen
+3. Bei Erfolg: Tag auf `v1.0.2` heben, Beta-Label entfernen, als Issue/PR melden
 
 ---
 
-*Release generiert am 2026-10-22 nach ehrlichem Audit-, Hardening- und Verifizierungs-Durchlauf (v1.0.1 Patch).*
-*Tag: `v1.0.1` (v1.0.0 ist superseded)*
+*Release generiert am 2026-10-22 – **Beta**, da Onboarding-Pfad ungetestet.*
+*Tag: `v1.0.1-beta` (v1.0.1 und v1.0.0 sind superseded)*
