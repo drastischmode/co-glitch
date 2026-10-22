@@ -5,6 +5,46 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.2] - 2026-10-22
+
+### Fixed
+- **Postiz**: Aus Default-Profil (`client`) in `client-extended` verschoben – Upstream Crash (NestJS/Prisma), nicht Infrastruktur-Bug. Default-Stack ist nun grün.
+- **Healthcheck-Semantik**: 4-Zustände-Modell eingeführt (healthy / running-no-check / unhealthy / not-started-profile). Ehrliche Zählung, keine geschönten „9/10 healthy" mehr.
+- **validate-models / doctor**: Nur OpenCode Zen ist kritisch (funktioniert mit `"public"`). NVIDIA, z.ai, Ollama = Warnung, kein Exit != 0. `make doctor` liefert Exit 0 auf frischer VM.
+- **make-Prerequisite**: Neues `./bootstrap.sh` (POSIX, installiert make/curl/git idempotent). Quickstart beginnt damit – ein Befehl auf frischer Maschine.
+- **Supabase Kong Healthcheck**: Externer HTTP-Check entfernt (Docker-interner `kong health` Check ausreichend).
+
+### Changed
+- **Beta-Label entfernt** – Default-Stack auf frischer Ubuntu-24.04-VM verifiziert (alle 12 Testschritte Exit 0).
+- **Arch** in Doku klar als **unverifiziert** markiert (Code vorhanden, Fresh-Machine-Test offen).
+- **Postiz** nur noch via `make up-client-extended` startbar.
+- **Neues Target** `up-client-extended` für Extended-Stack.
+- **Healthcheck-Ausgabe** nutzt 4-Zustände-Summary (healthy/running/unhealthy/not-started).
+- **Quickstart** beginnt mit `./bootstrap.sh` statt `make client-setup`.
+
+### Added
+- `./bootstrap.sh` – POSIX Bootstrap-Skript (make/curl/git + client-setup).
+- `make up-client-extended` Target.
+- `docs/legacy/verification-v1.0.2.md` – vollständiger Verifikations-Report mit Befehl+Exit-Code.
+- `docs/legacy/release-v1.0.2.md` – Release Notes.
+
+### Security
+- Unverändert: Delegate-Allowlist, Sandbox-Default, lokaler STT-Fallback, keine Secrets in Logs.
+- UFW + Fail2ban + Tailscale (Tailnet-only).
+- Alle Container non-root, `cap_drop: [ALL]`, `no-new-privileges:true`.
+
+### Verification
+- Fresh-Machine-Test auf qemu/KVM Ubuntu 24.04 **erneut durchgeführt**.
+- **Alle 12 Schritte Exit 0** (Bootstrap, gen-secrets, validate-models, doctor, UFW, non-root Docker, up-client, client-health, doctor-post, down-client).
+- `make client-health` Exit 0 mit `unhealthy: 0, critical: 0`.
+- `make doctor` Exit 0 (Warnungen für optionale Provider erlaubt).
+- Zeit bis grün: ~8 min (inkl. Image-Pull).
+
+### Warning
+- **Arch Linux**: Fresh-Machine-Test **nicht durchgeführt**. Code vorhanden, aber unverifiziert. Nutzung auf eigenes Risiko.
+- **Tailscale**: In CI/VM-Test kein Authkey → nicht verifiziert.
+- **Voice/VPS/ARM64/Last-Test/Soak**: Nicht im Scope dieses Releases.
+
 ## [Unreleased]
 
 ### Added

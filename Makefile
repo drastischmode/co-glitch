@@ -56,6 +56,9 @@ doctor: validate-models client-health
 up-client:
 	@$(COMPOSE_CLIENT) --profile client up -d
 
+up-client-extended:
+	@$(COMPOSE_CLIENT) --profile client --profile client-extended up -d
+
 up-voice:
 	@$(COMPOSE_VOICE) --profile voice up -d
 

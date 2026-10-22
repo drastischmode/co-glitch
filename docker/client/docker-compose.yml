@@ -260,7 +260,7 @@ services:
   # ==========================================
   postiz:
     image: ghcr.io/gitroomhq/postiz-app:v2.25.1
-    profiles: ["client"]
+    profiles: ["client-extended"]
     <<: *service-medium
     cap_drop: [ALL]
     cap_add: [CHOWN, SETGID, SETUID, DAC_OVERRIDE]

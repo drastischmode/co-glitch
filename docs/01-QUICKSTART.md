@@ -1,27 +1,36 @@
-# co-glitch Quickstart (Client-First) — **BETA**
-
-> ⚠️ **BETA STATUS**: Der primäre Onboarding-Pfad (`make client-setup` → `make up-client` → `make client-health`) wurde **NICHT auf einer frischen VM getestet**. Nutzung auf eigenes Risiko.
+# co-glitch Quickstart (Client-First)
 
 ## Voraussetzungen
 - **Client**: Arch Linux, Manjaro, EndeavourOS, Ubuntu, Debian, Linux Mint, Pop!_OS
 - **RAM**: 8 GB empfohlen (16 GB für Ollama + alle Dienste)
 - **Optional VPS**: Ubuntu 22.04/24.04 (Oracle Cloud Free Tier ARM empfohlen)
 - **Tailscale Account** (für Tailnet-Vernetzung)
-- **`make`** — **nicht** auf jedem frischen System vorhanden (verifiziert: Ubuntu 24.04 Cloud-Image hat kein `make`). Vorher installieren:
-
-```bash
-# Ubuntu/Debian
-sudo apt-get update && sudo apt-get install -y make
-# Arch
-sudo pacman -S --needed make
-```
-
-> Ohne `make` scheitert jeder `make ...`-Aufruf mit `make: command not found`.
-> Alternativ direkt: `sudo bash scripts/client-bootstrap.sh`
 
 ---
 
-## 1. Repository vorbereiten
+## 1. Bootstrap (frische Maschine)
+
+```bash
+# Ein einziger Befehl auf frischem System (installiert make, curl, git + Client-Setup)
+./bootstrap.sh
+```
+
+**Was `bootstrap.sh` macht:**
+- Installiert idempotent: `make`, `curl`, `git` (apt/pacman)
+- Ruft `make client-setup` auf (Docker, UFW, Fail2ban, Tailscale, ...)
+
+> **Alternative (manuell):**
+> ```bash
+> # Ubuntu/Debian
+> sudo apt-get update && sudo apt-get install -y make curl git
+> # Arch
+> sudo pacman -S --needed make curl git
+> make client-setup
+> ```
+
+---
+
+## 2. Repository vorbereiten
 
 ```bash
 cd /home/admin/co-glitch
@@ -46,7 +55,7 @@ nano .env
 
 ---
 
-## 2. Client einrichten (Linux Laptop/Workstation)
+## 3. Client einrichten (falls nicht via bootstrap.sh)
 
 ```bash
 # Vollständiges Setup (Docker, Tools, UFW, Fail2ban, Tailscale)
@@ -77,24 +86,26 @@ newgrp docker
 
 ---
 
-## 3. AI-Modelle validieren
+## 4. AI-Modelle validieren
 
 ```bash
 make validate-models
 ```
 
 Prüft Erreichbarkeit aller Endpunkte:
-- OpenCode Zen (Free Tier)
-- NVIDIA NIM (mit API-Key)
-- z.ai / Zhipu (mit API-Key)
-- Ollama lokal (falls installiert)
+- OpenCode Zen (Free Tier, **kritisch**, funktioniert mit `"public"`)
+- NVIDIA NIM (mit API-Key, **optional**)
+- z.ai / Zhipu (mit API-Key, **optional**)
+- Ollama lokal (falls installiert, **optional**)
+
+> **Hinweis**: Nur OpenCode Zen muss erreichbar sein. Fehlende optionale Keys geben nur Warnungen.
 
 ---
 
-## 4. Client-Stack starten
+## 5. Client-Stack starten
 
 ```bash
-# Alle Client-Dienste starten
+# Alle Client-Dienste starten (Default-Profil: client)
 make up-client
 
 # Optional: Voice-Stack (Whisper STT)
@@ -103,8 +114,8 @@ make up-voice
 # Optional: Ollama (falls installiert)
 docker compose -f docker/client/docker-compose.yml --profile client-ollama up -d
 
-# Optional: Diun (Image Update Notifier)
-docker compose -f docker/client/docker-compose.yml --profile client-extended up -d
+# Optional: Extended-Dienste (Postiz, Beszel-Agent, Diun)
+make up-client-extended
 ```
 
 ### Was `up-client` startet (Profile: `client`):
@@ -113,27 +124,30 @@ docker compose -f docker/client/docker-compose.yml --profile client-extended up 
 |---------|-------------|-------|
 | n8n | 5678 | Workflow-Automatisierung |
 | Forgejo | 3000/2222 | Git Hosting (Web + SSH) |
-| Postiz | 4007 | Social Media Scheduling |
 | Supabase Studio | 8000 (Kong) | Backend-as-a-Service |
 | Uptime Kuma | 3001 | Uptime/Status-Monitoring |
 | Dozzle | 8082 | Container Logs UI |
 | Beszel Hub | 8090 | System-Metriken |
-| Beszel Agent | - | Lokale Metriken für Beszel |
 | cAdvisor | 8080 | Container Resource Metrics |
+
+> **Optional (Extended-Profil):** Postiz (4007), Beszel Agent, Diun
+> ```bash
+> make up-client-extended
+> ```
 
 ---
 
-## 5. Health-Check
+## 6. Health-Check
 
 ```bash
 make client-health
 ```
 
-Prüft: Docker, UFW, alle Container (healthy), HTTP-Endpunkte, Ollama, Tailscale, Disk, RAM.
+Prüft: Docker, UFW, alle Container (4-Zustände: healthy/running/unhealthy/not-started), HTTP-Endpunkte, Ollama, Tailscale, Disk, RAM.
 
 ---
 
-## 6. OpenCode konfigurieren
+## 7. OpenCode konfigurieren
 
 ```bash
 # Config verlinken (empfohlen)
@@ -145,7 +159,7 @@ systemctl --user enable --now --user $(pwd)/config/systemd/opencode.service
 
 ---
 
-## 7. Zugriff (lokal & Tailnet)
+## 8. Zugriff (lokal & Tailnet)
 
 Alle Services binden **nur an 127.0.0.1**. Zugriff über Tailscale IP oder localhost.
 
@@ -153,14 +167,14 @@ Alle Services binden **nur an 127.0.0.1**. Zugriff über Tailscale IP oder local
 |---------|-------|---------|
 | n8n | `http://localhost:5678` | `http://<tailnet-ip>:5678` |
 | Forgejo | `http://localhost:3000` | `http://<tailnet-ip>:3000` |
-| Postiz | `http://localhost:4007` | `http://<tailnet-ip>:4007` |
 | Supabase | `http://localhost:8000` | `http://<tailnet-ip>:8000` |
 | Uptime Kuma | `http://localhost:3001` | `http://<tailnet-ip>:3001` |
 | Beszel | `http://localhost:8090` | `http://<tailnet-ip>:8090` |
+| Postiz (extended) | `http://localhost:4007` | `http://<tailnet-ip>:4007` |
 
 ---
 
-## 8. VPS (Optional - nur für öffentliche Erreichbarkeit)
+## 9. VPS (Optional - nur für öffentliche Erreichbarkeit)
 
 Falls **eingehende Webhooks**, **Tailnet Exit-Node** oder **dauerhaft erreichbare Dienste** gebraucht werden:
 
