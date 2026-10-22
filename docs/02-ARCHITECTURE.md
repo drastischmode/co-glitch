@@ -1,5 +1,14 @@
 # Architektur: Client vs. VPS — **BETA**
 
+| Profil | Dienste | Anzahl |
+| :--- | :--- | ---: |
+| **Default (`client`)** | supabase-db, supabase-kong, n8n, forgejo, uptime-kuma, cadvisor, dozzle, beszel | **8** |
+| **Extended (`client-extended`)** | redis, postiz, beszel-agent, diun | **4** |
+| **Voice (`voice`)** | whisper | **1** |
+| **VPS (`vps`)** | caddy, tailscale, keepalive | **3** |
+
+**Wichtig:** Redis ist ausschließlich im `client-extended` Profil definiert. Postiz hängt mit `depends_on: service_healthy` von Redis ab. Ohne `make up-client-extended` läuft Postiz nicht.
+
 > ⚠️ **BETA STATUS**: Der Client-Stack wurde nicht auf einer frischen VM verifiziert (siehe `docs/legacy/verification-v1.0.2.md`).
 
 ## Kernprinzip: **Client-First**

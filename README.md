@@ -3,12 +3,13 @@
 **Client-First Infrastructure-as-Code für lokale KI-Entwicklung.**
 Der Linux-Client ist die primäre Laufzeitumgebung; ein VPS ist ein optionales Add-on.
 
-![Status: stable](https://img.shields.io/badge/status-stable-green)
-![Version](https://img.shields.io/badge/version-1.0.2-lightgrey)
+![Status: stable%20(voice%20unverified)](https://img.shields.io/badge/status-stable--voice--unverified-green)
+![Version](https://img.shields.io/badge/version-1.0.3-lightgrey)
 
 > ✅ **Stable.** Der Default-Onboarding-Pfad (`./bootstrap.sh` → `make up-client` → `make client-health`) wurde auf einer frischen Ubuntu-24.04-VM verifiziert (Exit 0, keine kritischen Issues).
 > Optionale Dienste (Postiz, Beszel-Agent) laufen im `client-extended` Profil.
-> Arch-Unterstützung: Code vorhanden, Fresh-Machine-Test noch offen – Rückmeldung erwünscht.
+> **v1.0.3:** Fresh-Machine-Test erfolgreich – Redis für Postiz verifiziert, Extended-Profil getestet.
+> Arch-Unterstützung: Code vorhanden, Fresh-Machine-Test offen – Rückmeldung erwünscht.
 
 ## Was drin ist
 
@@ -67,13 +68,18 @@ config/      Konfigurationsdateien der Dienste
 | `docs/09-VOICE-EXTENSIONS.md` | Voice-Agent Erweiterungen |
 | `docs/legacy/verification-v1.0.2.md` | **Verifikations-Report v1.0.2** |
 
-## Status und Grenzen
+## Status
 
-Getestet auf einer frischen Ubuntu-24.04-VM (qemu/KVM): Bootstrap (`./bootstrap.sh`), UFW-Aktivierung,
-Docker/Fail2ban, Compose-Validierung, Default-Stack-Start (`make up-client`), `client-health` Exit 0.
-**Optional (Extended-Profil):** Postiz, Beszel-Agent, Diun – separat via `make up-client-extended`.
-**Nicht** verifiziert: Arch-Fresh-Machine, ARM64, Lasttest, 72-h-Soak, Voice-/VPS-Stack.
-Details und Belege in der Verifikationsdatei.
+**v1.0.3 – stable (default + extended; voice unverified)**
+
+- Default-Stack (8 Services): verifiziert auf frischer Ubuntu-24.04-qemu-VM (12/12 VM-Steps, client-health Exit 0, unhealthy 0).
+- Extended-Stack (Redis + Postiz + Beszel-Agent + Diun): verifiziert auf frischer VM (client-health Exit 0 im Extended-Modus).
+- Voice-Stack (Whisper/Piper): **nicht verifiziert** – Konfiguration vorhanden, Test auf frischer VM und mit lokalem Piper steht aus.
+- Arch: **nicht verifiziert** – Ubuntu 24.04 verifiziert.
+- Tailscale: **nicht verifiziert** – optional, ohne Authkey nicht testbar.
+- VPS-Stack: optional, nicht Teil der Default-Verifikation.
+
+Details: `docs/legacy/verification-v1.0.3.md`
 
 ## Lizenz
 
