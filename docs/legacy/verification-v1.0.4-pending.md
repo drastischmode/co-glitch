@@ -8,7 +8,7 @@ Basis: v1.0.3 (67751f8, unverändert)
 - Backup: verifiziert. DB-Dump (forgejo, 121 Tabellen, 22021 Bytes), 4 Volume-Tarballs, manifest.sha256 mit 6 Einträgen.
 - Voice-Stack: nicht auf frischer VM getestet.
 - Arch: nicht getestet (kein qemu-aarch64).
-- Piper-TTS: kein Audio-Device auf Host.
+- Piper (TTS): ✅ lokal verifiziert (WAV erzeugt, siehe Test-Log).
 
 ## Was geschlossen wurde
 
@@ -20,7 +20,7 @@ Basis: v1.0.3 (67751f8, unverändert)
 
 - Voice-Stack auf VM.
 - Arch.
-- Piper-TTS (kein Audio-Device).
+- Piper (TTS): ✅ lokal verifiziert (WAV erzeugt, siehe Test-Log).
 
 ## Konsequenz
 
