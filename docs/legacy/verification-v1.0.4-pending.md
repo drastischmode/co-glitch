@@ -8,25 +8,26 @@ Basis: v1.0.3 (67751f8, unverändert)
 - Backup: verifiziert. DB-Dump (forgejo, 121 Tabellen, 22021 Bytes), 4 Volume-Tarballs, manifest.sha256 mit 6 Einträgen.
 - Voice-Stack: nicht auf frischer VM getestet.
 - Arch: nicht getestet (kein qemu-aarch64).
-- Piper (TTS): ✅ lokal verifiziert (WAV erzeugt, siehe Test-Log).
+- Piper (TTS): ✅ lokal verifiziert (WAV erzeugt, Binary in /opt/piper-tts/piper, Modell de_DE-thorsten-medium).
 
 ## Was geschlossen wurde
 
 - backup.sh im richtigen Repo (/home/admin/co-glitch) neu geschrieben, alle DBs + 4 Volumes.
 - forgejo-Migration: INSTALL_LOCK=true, echtes DB-Passwort, Migration als git-User.
 - forgejo-DB: 0 → 121 Tabellen, Dump 404 → 22021 Bytes.
+- Whisper (STT): ✅ lokal – Service `onerahmet/openai-whisper-asr-webservice:latest` (Model: base), API auf 127.0.0.1:8081, Healthcheck gefixt.
+- Piper (TTS): ✅ lokal – `piper-tts-bin` via AUR installiert (Binary: /opt/piper-tts/piper), Modell `de_DE-thorsten-medium.onnx` heruntergeladen, WAV-Erzeugung via `--output_file` funktionsfähig (78 KB, 22.05 kHz, 16-bit mono).
 
 ## Was NICHT geschlossen wurde
 
-- Voice-Stack auf VM.
-- Arch.
-- Piper (TTS): ✅ lokal verifiziert (WAV erzeugt, siehe Test-Log).
+- Voice-Stack auf VM (Integrationstest Whisper + Piper zusammen).
+- Arch-Test (kein qemu-aarch64).
 
 ## Konsequenz
 
 - Kein v1.0.4-Tag. v1.0.3 bleibt 67751f8.
 - README-Badge bleibt stable (voice unverified).
-- Nächster Schritt: VM für Voice/Arch. Backup ist abgeschlossen.
+- Nächster Schritt: VM für Voice/Arch Integrationstest. Backup ist abgeschlossen.
 
 ## Git-Forensik: v1.0.3 Tag-Objekt vs. Commit
 
@@ -49,12 +50,21 @@ Basis: v1.0.3 (67751f8, unverändert)
 - Spracherkennung: funktioniert, liefert JSON (`detected_language`, `confidence`)
 - Fazit: Whisper **läuft lokal**, nur Healthcheck-Pfad in Compose-Datei anpassen
 
-### Offene Voice-Punkte nach Whisper-Test
+## Piper-Test lokal (ohne VM) – 2026-10-22
+
+- Paket: `piper-tts-bin` 2023.11.14-1 (AUR, via yay)
+- Binary: `/opt/piper-tts/piper` (nicht in PATH, muss voll qualifiziert oder via Symlink aufgerufen werden)
+- Modell: `de_DE-thorsten-medium.onnx` (63 MB) + `.json` von HuggingFace (rhasspy/piper-voices)
+- Test: `echo "Hallo, dies ist ein Test." | /opt/piper-tts/piper --model ~/.local/share/piper-voices/de_DE-thorsten-medium.onnx --output_file /tmp/piper-test.wav`
+- Ergebnis: RC=0, WAV 78496 Bytes, RIFF WAVE, 16-bit mono, 22050 Hz, Real-time factor 0.045
+- Espeak-ng-Daten: `/opt/piper-tts/espeak-ng-data/` (vom Paket mitgeliefert)
+- Fazit: Piper **läuft lokal**, WAV-Erzeugung funktioniert ohne Audio-Device
+
+### Offene Voice-Punkte nach Whisper + Piper Tests
 
 | Komponente | Status | Grund |
 |------------|--------|-------|
-| Whisper (STT) | ✅ lokal | Service funktionsfähig, Healthcheck-Pfad fixen |
-| Piper (TTS) | ⚠️ | Binary nicht installiert, Modell vorhanden |
-| Voice-VM-Test | ⚠️ | Kein multipass/lima, qemu-x86 verfügbar aber nicht genutzt |
+| Whisper (STT) | ✅ lokal | Service funktionsfähig, Healthcheck-Pfad gefixt |
+| Piper (TTS) | ✅ lokal | Binary + Modell funktionsfähig, WAV-Erzeugung OK |
+| Voice-VM-Test | ⚠️ | Kein multipass/lima |
 | Arch-Test | ⚠️ | Kein qemu-aarch64 |
-
