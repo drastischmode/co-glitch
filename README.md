@@ -1,3 +1,6 @@
+<img width="1024" height="572" alt="image" src="https://github.com/user-attachments/assets/0d3cbccb-17b7-4cf1-a478-59569b6e493f" />
+
+
 # co-glitch
 
 **Client-First Infrastructure-as-Code für lokale KI-Entwicklung.**
