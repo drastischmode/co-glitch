@@ -1,4 +1,3 @@
-
 # Co-Glitch Voice Stack - Whisper STT Server
 # Profile: voice
 # Läuft lokal auf dem Client
@@ -20,14 +19,14 @@ services:
   # WHISPER SERVER - Speech to Text
   # ==========================================
   whisper-server:
-    image: ghcr.io/onyx-dot-app/whisper-api:latest
+    image: onerahmet/openai-whisper-asr-webservice:latest
     profiles: ["voice"]
     <<: *common-env
     ports:
       - "127.0.0.1:8081:9000"
     environment:
       - ASR_MODEL=base
-      - ASR_ENGINE=whisper
+      - ASR_ENGINE=openai_whisper
       - WHISPER_API_KEY=  # Optional: API Key für Auth
     volumes:
       - whisper_models:/root/.cache/whisper
@@ -38,7 +37,7 @@ services:
         reservations:
           memory: 1G
     healthcheck:
-      test: ["CMD", "curl", "-sf", "http://localhost:9000/health"]
+      test: ["CMD", "curl", "-sf", "http://localhost:9000/docs"]
       interval: 30s
       timeout: 10s
       retries: 3

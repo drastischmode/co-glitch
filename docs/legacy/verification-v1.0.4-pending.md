@@ -38,3 +38,23 @@ Basis: v1.0.3 (67751f8, unverändert)
 - Frühere Berichte, die „v1.0.3 = 67751f8" sagten, meinten den Ziel-Commit – korrekt.
 - Frühere Berichte, die „v1.0.3 = 2c71343" sagten, meinten das Tag-Objekt – ebenfalls korrekt.
 - Kein Retag, keine Manipulation.
+
+## Whisper-Test lokal (ohne VM) – 2026-10-22
+
+- Service: `onerahmet/openai-whisper-asr-webservice:latest` (Model: base)
+- Container startet, API erreichbar auf 127.0.0.1:8081
+- Endpunkte: `/asr` (Transkription), `/detect-language` (Spracherkennung), `/docs`, `/openapi.json`
+- Healthcheck in docker-compose.yml fehlerhaft: `/health` gibt 404 (korrekt: `/asr` oder Root)
+- Transkription: HTTP 200, leere Antwort für Sinus-Signal (erwartet – keine Sprache)
+- Spracherkennung: funktioniert, liefert JSON (`detected_language`, `confidence`)
+- Fazit: Whisper **läuft lokal**, nur Healthcheck-Pfad in Compose-Datei anpassen
+
+### Offene Voice-Punkte nach Whisper-Test
+
+| Komponente | Status | Grund |
+|------------|--------|-------|
+| Whisper (STT) | ✅ lokal | Service funktionsfähig, Healthcheck-Pfad fixen |
+| Piper (TTS) | ⚠️ | Binary nicht installiert, Modell vorhanden |
+| Voice-VM-Test | ⚠️ | Kein multipass/lima, qemu-x86 verfügbar aber nicht genutzt |
+| Arch-Test | ⚠️ | Kein qemu-aarch64 |
+
