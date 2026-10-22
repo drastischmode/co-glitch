@@ -4,7 +4,8 @@
 
 **co-glitch v1.0.2** ist der erste **stable** Release. Der Default-Onboarding-Pfad
 (`./bootstrap.sh` → `make up-client` → `make client-health`) wurde auf einer frischen
-Ubuntu-24.04-VM (qemu/KVM) **vollständig verifiziert** – alle 12 Testschritte Exit 0.
+Ubuntu-24.04-VM (qemu/KVM) **verifiziert** – **11/11 Testschritte auf VM Exit 0**.
+Schritt 12 (Extended-Smoke-Test) wurde lokal durchgeführt.
 
 ---
 
@@ -12,7 +13,7 @@ Ubuntu-24.04-VM (qemu/KVM) **vollständig verifiziert** – alle 12 Testschritte
 
 | Bereich | Änderung | Grund |
 |---------|----------|-------|
-| **Postiz** | Ins `client-extended` Profil verschoben | Upstream Crash (NestJS/Prisma), nicht Infra-Bug |
+| **Postiz** | Ins `client-extended` Profil verschoben | Fehlende Redis-Abhängigkeit (ECONNREFUSED 127.0.0.1:6379), nicht Infra-Bug |
 | **Healthcheck** | 4-Zustände-Modell (healthy/running/unhealthy/not-started) | Ehrliche Zählung, kein „9/10 healthy" mehr |
 | **validate-models** | Nur OpenCode Zen kritisch; NVIDIA/z.ai/Ollama = Warnung | `make doctor` Exit 0 auf frischer VM |
 | **Bootstrap** | Neues `./bootstrap.sh` (POSIX, kein make nötig) | Frisches Ubuntu hat kein `make` |
@@ -36,12 +37,12 @@ Ubuntu-24.04-VM (qemu/KVM) **vollständig verifiziert** – alle 12 Testschritte
 | `make doctor` (post) | **0** | Warnungen erlaubt |
 | `make down-client` | 0 | 0 Container |
 
-**Container-Status (4-Zustände):**
+**Container-Status (4-Zustände, Default-Profil):**
 ```
-healthy:            8  (supabase-db, kong, n8n, forgejo, kuma, cadvisor + HTTP)
+healthy:            6  (supabase-db, kong, n8n, forgejo, kuma, cadvisor)
 running (no check): 2  (dozzle, beszel – HTTP OK)
 unhealthy:          0
-not started:        2  (postiz, beszel-agent – profile: client-extended)
+not started:        3  (postiz, beszel-agent, diun – profile: client-extended)
 critical issues:    0
 ```
 
@@ -75,7 +76,7 @@ critical issues:    0
 | Arch Fresh-Machine | Code vorhanden, **ungetestet** – Nutzung auf eigenes Risiko |
 | Tailscale in CI | Kein Authkey → **nicht verifiziert** |
 | ARM64 / Last-Test / 72h-Soak | **Nicht im Scope** |
-| Voice-/VPS-Stack | **Nicht auf VM getestet** |
+| Voice-Stack | **Nicht auf VM getestet in v1.0.2** |
 
 ---
 

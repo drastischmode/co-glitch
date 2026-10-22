@@ -256,6 +256,45 @@ services:
       - net-backend
 
   # ==========================================
+  # REDIS - für Postiz (Extended)
+  # ==========================================
+  redis:
+    image: redis:7-alpine
+    profiles: ["client-extended"]
+    env_file:
+      - ../../.env
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    labels:
+      - "co-glitch.tier=client"
+    security_opt:
+      - no-new-privileges:true
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: "256m"
+        reservations:
+          memory: "64m"
+    command: ["redis-server", "--appendonly", "yes", "--requirepass", "${REDIS_PASSWORD}"]
+    environment:
+      - REDIS_PASSWORD=${REDIS_PASSWORD}
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli -a \"$$REDIS_PASSWORD\" ping | grep -q PONG"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - net-backend
+
+  # ==========================================
   # POSTIZ - Social Media Scheduling
   # ==========================================
   postiz:
@@ -269,6 +308,7 @@ services:
     environment:
       - JWT_SECRET=${POSTIZ_JWT_SECRET}
       - DATABASE_URL=postgresql://postgres:${SUPABASE_DB_PASS}@supabase-db:5432/postgres
+      - REDIS_URL=redis://:${REDIS_PASSWORD}@redis:6379
       - DISABLE_REGISTRATION=true
       - MAIN_URL=http://localhost:4007
       - FRONTEND_URL=http://localhost:4007
@@ -278,12 +318,14 @@ services:
     depends_on:
       supabase-db:
         condition: service_healthy
+      redis:
+        condition: service_healthy
     healthcheck:
       test: ["CMD", "node", "-e", "require('net').connect(4007,'127.0.0.1').on('connect',()=>process.exit(0)).on('error',()=>process.exit(1))"]
       interval: 30s
       timeout: 10s
       retries: 3
-      start_period: 40s
+      start_period: 120s
     networks:
       - net-frontend
       - net-backend
@@ -450,6 +492,7 @@ volumes:
   beszel_data:
   diun_data:
   ollama_data:
+  redis_data:
 
 networks:
   net-backend:

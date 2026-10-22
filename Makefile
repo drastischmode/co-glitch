@@ -1,5 +1,6 @@
 .PHONY: help gen-secrets client-setup client-health install-ollama validate-models doctor \
         up-client up-voice down-client up-all down-all \
+        up-client-extended down-client-extended \
         vps-setup vps-health up-vps down-vps \
         backup restore update uninstall
 
@@ -20,10 +21,13 @@ help:
 	@echo "  make install-ollama   Lokale Modelle (qwen3.5:8b)"
 	@echo "  make validate-models  AI-Endpunkte prüfen"
 	@echo "  make doctor           Vollständiger System-Check (Health + Models + Config)"
-	@echo "  make up-client        Client-Stack starten"
-	@echo "  make up-voice         Voice-Stack starten"
+	@echo "  make up-client        Client-Stack starten (Default-Profil)"
+	@echo "  make up-client-extended  Extended-Stack (Postiz, Beszel-Agent, Diun)"
+	@echo "  make up-voice         Voice-Stack starten (Whisper)"
 	@echo "  make client-health    Client-Health-Check"
 	@echo "  make down-client      Client-Stack stoppen"
+	@echo "  make down-client-extended  Extended-Stack stoppen"
+	@echo "  make down-voice       Voice-Stack stoppen"
 	@echo "  make backup           Backup erstellen (DB + Volumes)"
 	@echo "  make restore DATE=... Restore aus Backup (Format: YYYY-MM-DD)"
 	@echo "  make update           Stack aktualisieren (Git pull + Image pull + Rolling restart)"
@@ -66,6 +70,12 @@ down-client:
 	@$(COMPOSE_CLIENT) down
 	@$(COMPOSE_VOICE) down
 
+down-client-extended:
+	@$(COMPOSE_CLIENT) --profile client --profile client-extended down
+
+down-voice:
+	@$(COMPOSE_VOICE) --profile voice down
+
 client-health:
 	@bash scripts/client-health-check.sh
 
@@ -97,5 +107,5 @@ vps-health:
 	@bash scripts/vps-health-check.sh
 
 # ---------- KOMBI ----------
-up-all: up-client up-voice
-down-all: down-client down-vps
+up-all: up-client up-client-extended up-voice
+down-all: down-client down-client-extended down-voice down-vps

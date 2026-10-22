@@ -9,18 +9,18 @@
 - Cloud Free Tier: ❌ – keine Credentials
 - Sonstiges: ❌
 
-### Phase 2: Fresh-Machine-Test (Ubuntu 24.04 qemu-VM) — **ALLE SCHRITTE EXIT 0**
+### Phase 2: Fresh-Machine-Test (Ubuntu 24.04 qemu-VM) — **11/11 SCHRITTE EXIT 0 AUF VM**
 
 | Schritt | Befehl | Dauer | Exit | Ergebnis |
 |---|---|---|---|---|
 | 1. Bootstrap | `./bootstrap.sh` | 69s | 0 | make/curl/git installiert + client-setup |
 | 2. gen-secrets (1.) | `make gen-secrets` | 2s | 0 | .env erzeugt (perms 600) |
-| 3. gen-secrets (2.) | `make gen-secrets` | 1s | 0 | Idempotent (Warnung, .env unverändert) |
+| 3. gen-secrets (2., idempotent) | `make gen-secrets` | 1s | 0 | Warnung, .env unverändert |
 | 4. validate-models | `make validate-models` | 3s | 0 | Zen OK, NVIDIA/z.ai WARN, Ollama OK |
 | 5. doctor (pre) | `make doctor` | 4s | 0 | Nur Warnungen für optionale Provider |
 | 6. Non-root Docker | `docker ps` | <1s | 0 | Gruppe aktiv, ohne sudo OK |
 | 7. UFW | `ufw status verbose` | <1s | 0 | **Status: active**, Forward Policy ACCEPT |
-| 8. up-client | `make up-client` | 178s | 0 | 8 Container gestartet |
+| 8. up-client | `make up-client` | 178s | 0 | 8 Container gestartet (Default) |
 | 9. Wartezeit | `sleep 240` | 240s | – | Container Health stabil |
 | 10. client-health | `make client-health` | 5s | **0** | **unhealthy: 0, critical: 0** |
 | 11. doctor (post) | `make doctor` | 4s | **0** | Nur Warnungen (optional) |
@@ -28,21 +28,23 @@
 
 **Gesamtzeit bis grün:** ~8 min (inkl. Image-Pull)
 
-### Container-Status nach 240s Wartezeit (4-Zustände-Modell)
+**Hinweis:** Schritt 12 (Extended-Smoke-Test) wurde **nicht auf der VM** durchgeführt (nur lokaler Smoke-Test). Auf der VM liefen Schritte 1–11 (11/11 Exit 0).
+
+### Container-Status nach 240s Wartezeit (4-Zustände-Modell, Default-Profil)
 
 | Zustand | Anzahl | Dienste |
 |---|---|---|
-| **healthy** | 8 | supabase-db, supabase-kong, n8n, forgejo, uptime-kuma, cadvisor, n8n (http), forgejo (http) |
-| **running (no check)** | 2 | dozzle, beszel (HTTP-Endpunkte OK) |
+| **healthy** | 6 | supabase-db, supabase-kong, n8n, forgejo, uptime-kuma, cadvisor |
+| **running (no check)** | 2 | dozzle, beszel |
 | **unhealthy** | 0 | – |
-| **not started (client-extended)** | 2 | **postiz, beszel-agent** (korrekt im extended-Profil) |
+| **not started (client-extended)** | 3 | **postiz, beszel-agent, diun** (alle in `client-extended`) |
 
-**Health-Summary Ausgabe:**
+**Health-Summary Ausgabe (Default-Profil):**
 ```
-healthy:            8
+healthy:            6
 running (no check): 2
 unhealthy:          0
-not started:        2  (profile: client-extended)
+not started:        3  (profile: client-extended)
 critical issues:    0
 Exit: 0
 ```
@@ -84,10 +86,16 @@ Nicht durchgeführt. In Doku klar als **unverifiziert** markiert:
 ## Was seit v1.0.1-beta behoben wurde
 
 ### Phase A: Postiz wirklich optional
-- **Ursache:** Upstream-Bug (NestJS/Prisma Crash-Loop, unabhängig von Env/DB)
-- **Entscheidung:** Postiz **konsequent ins `client-extended` Profil** verschoben
-- **Log-Auszug:** `PM2 | App [orchestrator:2] exited with code [1] via signal [SIGINT]`
-- **Folge:** `make up-client` startet Postiz **nicht** mehr. `make up-client-extended` für Extended-Stack.
+- **Ursache:** Fehlende Redis-Abhängigkeit im Docker-Compose-Stack.
+- Postiz stürzt ab mit `ECONNREFUSED 127.0.0.1:6379` (Redis-Verbindung fehlgeschlagen).
+- Der Stack definiert **keinen Redis-Service**.
+- **Log-Auszug:**
+```
+0|backend | [ioredis] Unhandled error event: Error: connect ECONNREFUSED 127.0.0.1:6379
+```
+- **Entscheidung:** Postiz **konsequent ins `client-extended` Profil** verschoben.
+- `make up-client` startet Postiz **nicht** mehr. `make up-client-extended` für Extended-Stack.
+- **Hinweis:** Der frühere Vermerk „Upstream-Bug (NestJS/Prisma)" war **falsch** – die Ursache ist ein fehlender Redis-Service im Compose.
 
 ### Phase B: Healthcheck-Semantik korrigiert
 - **Vier Zustände eingeführt:** healthy / running (no check) / unhealthy / not started (profile)
@@ -115,7 +123,7 @@ Nicht durchgeführt. In Doku klar als **unverifiziert** markiert:
 | Arch | ⚠️ | Code vorhanden, Fresh-Machine-Test offen |
 
 ### Phase F: Fresh-Machine-Test erneut durchgeführt (qemu-VM)
-- **Alle 12 Schritte Exit 0** ✅
+- **11/11 Schritte auf VM Exit 0** ✅ (Schritt 12 Extended-Smoke-Test war nur lokal, nicht auf VM)
 - `make client-health` Exit 0 mit `unhealthy: 0` ✅
 - `make doctor` Exit 0 (Warnungen für optionale Provider) ✅
 - Zeit bis grün: **~8 min** (inkl. Image-Pull)
@@ -127,7 +135,7 @@ Nicht durchgeführt. In Doku klar als **unverifiziert** markiert:
 1. **Last-Test** – nicht im Scope
 2. **ARM64** – nicht im Scope (Oracle ARM Free Tier wäre Ziel)
 3. **72h-Soak** – nicht im Scope
-4. **Voice-/VPS-Stack** – nicht auf VM getestet (Client-First Fokus)
+4. **Voice-Stack** – **nicht auf VM getestet in v1.0.2** (Stand aus v1.0.1 übernommen)
 5. **Arch Fresh-Machine** – Code vorhanden, Test offen
 
 **Nicht** als offener Punkt: Dinge, die der Default-Stack versprochen hat (Postiz, doctor, make) – die sind jetzt behoben oder ehrlich als „nicht im Default" markiert.

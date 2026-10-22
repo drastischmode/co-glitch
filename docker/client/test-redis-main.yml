@@ -1,0 +1,46 @@
+# Test: add redis to main compose
+services:
+  redis:
+    image: redis:7-alpine
+    profiles: ["client-extended"]
+    env_file:
+      - ../../.env
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    labels:
+      - "co-glitch.tier=client"
+    security_opt:
+      - no-new-privileges:true
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: "256m"
+        reservations:
+          memory: "64m"
+    command: ["redis-server", "--appendonly", "yes", "--requirepass", "${REDIS_PASSWORD}"]
+    environment:
+      - REDIS_PASSWORD=${REDIS_PASSWORD}
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli -a \"$$REDIS_PASSWORD\" ping | grep -q PONG"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - net-backend
+
+volumes:
+  redis_data:
+
+networks:
+  net-backend:
+    name: co-glitch-backend
+    driver: bridge
+    internal: true

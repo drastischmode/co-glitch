@@ -56,6 +56,8 @@ echo "Generiere sichere Passwörter und Keys..."
 sed -i "s|GENERATE_ME_SUPABASE_PASS|$(generate_hex)|g" "$ENV_FILE"
 sed -i "s|GENERATE_ME_POSTIZ_JWT|$(generate_hex)|g" "$ENV_FILE"
 sed -i "s|GENERATE_ME_FORGEJO_PASS|$(generate_hex)|g" "$ENV_FILE"
+# Redis Passwort für Postiz (Extended)
+sed -i "s|GENERATE_ME_REDIS_PASS|$(generate_hex)|g" "$ENV_FILE"
 # BESZEL_AGENT_KEY wird NICHT generiert: das ist der Public Key, den der Beszel-Hub
 # beim Anlegen eines Systems ausgibt (Settings -> Systeme -> Hinzufuegen).
 # Ein Zufallswert hier fuehrt zu "ssh: no key found" im Agent (Crash-Loop).
