@@ -1,0 +1,51 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "plugin": ["opencode-live", "provider-fallback-plugin"],
+  "provider": {
+    "opencode": {
+      "type": "openai",
+      "baseURL": "https://opencode.ai/zen/v1",
+      "apiKey": "{env:OPENCODE_API_KEY}",
+      "models": {
+        "deepseek-v4-flash-free": { "name": "DeepSeek V4 Flash (Free)" },
+        "big-pickle": { "name": "Big Pickle (Free)" },
+        "mimo-v2.5-free": { "name": "MiMo V2.5 (Free)" },
+        "qwen3.6-plus-free": { "name": "Qwen 3.6 Plus (Free)" },
+        "minimax-m3-free": { "name": "MiniMax M3 (Free)" },
+        "nemotron-3-ultra-free": { "name": "Nemotron 3 Ultra (Free)" },
+        "north-mini-code-free": { "name": "North Mini Code (Free)" }
+      }
+    },
+    "nvidia": {
+      "type": "openai",
+      "baseURL": "https://integrate.api.nvidia.com/v1",
+      "apiKey": "{env:NVIDIA_API_KEY}",
+      "models": {
+        "nvidia/nemotron-3.5-lightning-30b-a3b": { "name": "Nemotron 3.5 Lightning (NVIDIA NIM)" },
+        "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning": { "name": "Nemotron 3 Nano Omni (Reasoning)" },
+        "nvidia/nemotron-3-ultra-550b-a55b": { "name": "Nemotron 3 Ultra 550B (NVIDIA NIM)" }
+      }
+    },
+    "zai": {
+      "type": "openai",
+      "baseURL": "https://api.z.ai/api/paas/v4",
+      "apiKey": "{env:ZAI_API_KEY}",
+      "models": {
+        "glm-4.5-flash": { "name": "GLM-4.5 Flash (Free)" },
+        "glm-4.7-flash": { "name": "GLM-4.7 Flash (Free)" }
+      }
+    },
+    "ollama": {
+      "npm": "@ai-sdk/openai-compatible",
+      "name": "Ollama (lokal)",
+      "options": {
+        "baseURL": "{env:OLLAMA_HOST}"
+      },
+      "models": {
+        "qwen3.5:8b": { "name": "Qwen 3.5 8B (lokal, 64k+ Kontext)" }
+      }
+    }
+  },
+  "model": "opencode/deepseek-v4-flash-free",
+  "small_model": "opencode/big-pickle"
+}

@@ -1,0 +1,40 @@
+[Unit]
+Description=Oracle Cloud Free Tier Keepalive (25% CPU Duty Cycle)
+Documentation=https://github.com/co-glitch/co-glitch
+After=network.target
+Wants=network.target
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/keepalive.sh
+Restart=always
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+
+# Resource Limits
+CPUQuota=25%
+MemoryLimit=50M
+
+# Security Hardening
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/log
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+RestrictNamespaces=true
+LockPersonality=true
+MemoryDenyWriteExecute=true
+
+# Environment (kann via drop-in überschrieben werden)
+Environment=KEEPALIVE_ON=900
+Environment=KEEPALIVE_OFF=2700
+Environment=KEEPALIVE_WORKERS=1
+Environment=KEEPALIVE_LOG_FILE=/var/log/keepalive.log
+
+[Install]
+WantedBy=multi-user.target

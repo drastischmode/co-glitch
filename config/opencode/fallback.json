@@ -1,0 +1,13 @@
+{
+  "enabled": true,
+  "defaultFallback": [
+    "opencode/big-pickle",
+    "nvidia/nvidia/nemotron-3.5-lightning-30b-a3b",
+    "nvidia/nvidia/nemotron-3-nano-omni-30b-a3b-reasoning",
+    "zai/glm-4.5-flash",
+    "ollama/qwen3.5:8b"
+  ],
+  "cooldownMs": 60000,
+  "maxRetries": 2,
+  "logging": false
+}

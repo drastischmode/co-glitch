@@ -1,0 +1,49 @@
+{
+  "$schema": "https://docs.renovateapi.com/renovate-schema.json",
+  "extends": [
+    "config:recommended",
+    ":label(dependencies)",
+    ":automergePatch",
+    ":automergeMinor"
+  ],
+  "labels": ["dependencies"],
+  "packageRules": [
+    {
+      "description": "Docker Compose Base Images - Major Updates manuell prüfen",
+      "matchFileNames": ["docker/**/docker-compose.yml"],
+      "matchDatasources": ["docker"],
+      "groupName": "docker-base-images",
+      "automerge": false,
+      "schedule": ["after 2am on monday"]
+    },
+    {
+      "description": "GitHub Actions - Auto-merge patch/minor",
+      "matchFileNames": [".github/workflows/**/*.yml"],
+      "matchDatasources": ["github-actions"],
+      "automerge": true,
+      "automergeType": "pr"
+    },
+    {
+      "description": "Bash Scripts - ShellCheck via CI",
+      "matchPaths": ["scripts/**/*.sh"],
+      "enabled": false
+    }
+  ],
+  "docker": {
+    "fileMatch": ["docker/**/docker-compose.yml"]
+  },
+  "regexManagers": [
+    {
+      "fileMatch": ["docker/**/docker-compose.yml"],
+      "matchStrings": [
+        "image: (?<depName>[^:]+):(?<currentValue>[^\\s]+)"
+      ],
+      "datasourceTemplate": "docker"
+    }
+  ],
+  "ignoreUnstable": true,
+  "prConcurrentLimit": 5,
+  "prHourlyLimit": 2,
+  "schedule": ["after 2am on monday", "after 2am on thursday"],
+  "timezone": "Europe/Berlin"
+}

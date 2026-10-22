@@ -1,0 +1,403 @@
+version: '3.8'
+
+# Co-Glitch Core Stack
+# Profile: core
+# Services: n8n, Postiz, Forgejo, Supabase (full stack), Temporal
+
+x-common-env: &common-env
+  env_file:
+    - ../../.env
+  restart: unless-stopped
+  logging:
+    driver: "json-file"
+    options:
+      max-size: "10m"
+      max-file: "3"
+
+x-healthcheck-defaults: &healthcheck-defaults
+  interval: 30s
+  timeout: 10s
+  retries: 3
+  start_period: 20s
+
+services:
+  # ==========================================
+  # N8N - Workflow Automation
+  # ==========================================
+  n8n:
+    image: n8nio/n8n:latest
+    profiles: ["core"]
+    <<: *common-env
+    ports:
+      - "127.0.0.1:5678:5678"
+    volumes:
+      - n8n_data:/home/node/.n8n
+    environment:
+      - N8N_HOST=localhost
+      - WEBHOOK_URL=http://localhost:5678/
+      - N8N_ENFORCE_SETTINGS_FILE_PERMISSIONS=true
+      - GENERIC_TIMEZONE=${TZ}
+    healthcheck:
+      <<: *healthcheck-defaults
+      test: ["CMD", "curl", "-f", "http://localhost:5678/healthz"]
+      start_period: 30s
+
+  # ==========================================
+  # POSTIZ - Social Media Scheduling
+  # ==========================================
+  postiz:
+    image: ghcr.io/gitroomhq/postiz-app:latest
+    profiles: ["core"]
+    <<: *common-env
+    ports:
+      - "127.0.0.1:5000:5000"
+    volumes:
+      - postiz_data:/app/data
+    environment:
+      - JWT_SECRET=${POSTIZ_JWT_SECRET}
+      - DATABASE_URL=postgresql://postiz:${POSTIZ_DB_PASS}@postiz-db:5432/postiz
+      - REDIS_URL=redis://postiz-redis:6379
+      - NODE_ENV=production
+    depends_on:
+      postiz-db:
+        condition: service_healthy
+      postiz-redis:
+        condition: service_started
+    healthcheck:
+      <<: *healthcheck-defaults
+      test: ["CMD", "curl", "-f", "http://localhost:5000/api/health"]
+      start_period: 40s
+
+  postiz-db:
+    image: postgres:16-alpine
+    profiles: ["core"]
+    <<: *common-env
+    environment:
+      - POSTGRES_USER=postiz
+      - POSTGRES_PASSWORD=${POSTIZ_DB_PASS}
+      - POSTGRES_DB=postiz
+    volumes:
+      - postiz_db:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postiz"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  postiz-redis:
+    image: redis:7-alpine
+    profiles: ["core"]
+    <<: *common-env
+    volumes:
+      - postiz_redis:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ==========================================
+  # FORGEJO - Git Hosting
+  # ==========================================
+  forgejo:
+    image: codeberg.org/forgejo/forgejo:9
+    profiles: ["core"]
+    <<: *common-env
+    ports:
+      - "127.0.0.1:3000:3000"
+      - "127.0.0.1:2222:22"
+    volumes:
+      - forgejo_data:/data
+      - /etc/timezone:/etc/timezone:ro
+      - /etc/localtime:/etc/localtime:ro
+    environment:
+      - USER_UID=1000
+      - USER_GID=1000
+      - DB_TYPE=postgres
+      - DB_HOST=forgejo-db:5432
+      - DB_NAME=forgejo
+      - DB_USER=forgejo
+      - DB_PASSWD=${FORGEJO_DB_PASS}
+      - APP_NAME="co-glitch Forgejo"
+      - RUN_MODE=prod
+      - DOMAIN=localhost
+      - SSH_PORT=2222
+    depends_on:
+      forgejo-db:
+        condition: service_healthy
+    healthcheck:
+      <<: *healthcheck-defaults
+      test: ["CMD", "curl", "-f", "http://localhost:3000/"]
+      start_period: 40s
+
+  forgejo-db:
+    image: postgres:16-alpine
+    profiles: ["core"]
+    <<: *common-env
+    environment:
+      - POSTGRES_USER=forgejo
+      - POSTGRES_PASSWORD=${FORGEJO_DB_PASS}
+      - POSTGRES_DB=forgejo
+    volumes:
+      - forgejo_db:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U forgejo"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ==========================================
+  # SUPABASE - Full Stack (Studio + Kong + DB + Services)
+  # ==========================================
+  
+  # Supabase Studio (Dashboard)
+  supabase:
+    image: supabase/studio:20241216
+    profiles: ["core"]
+    <<: *common-env
+    ports:
+      - "127.0.0.1:3001:3000"
+    environment:
+      - SUPABASE_URL=http://kong:8000
+      - SUPABASE_ANON_KEY=${SUPABASE_ANON_KEY}
+      - SUPABASE_SERVICE_KEY=${SUPABASE_SERVICE_KEY}
+      - SUPABASE_PUBLIC_URL=http://localhost:3001
+    depends_on:
+      - kong
+      - supabase-db
+      - supabase-auth
+      - supabase-rest
+      - supabase-realtime
+      - supabase-storage
+      - supabase-functions
+    healthcheck:
+      <<: *healthcheck-defaults
+      test: ["CMD", "curl", "-f", "http://localhost:3000/"]
+      start_period: 30s
+
+  # Kong API Gateway
+  kong:
+    image: kong:3.6
+    profiles: ["core"]
+    <<: *common-env
+    ports:
+      - "127.0.0.1:8000:8000"
+    environment:
+      - KONG_DATABASE=postgres
+      - KONG_PG_HOST=supabase-db
+      - KONG_PG_USER=postgres
+      - KONG_PG_PASSWORD=${SUPABASE_DB_PASS}
+      - KONG_PG_DATABASE=postgres
+      - KONG_DECLARATIVE_CONFIG=/kong/kong.yml
+      - KONG_PLUGINS=request-transformer,cors,key-auth
+      - KONG_LOG_LEVEL=info
+    volumes:
+      - ./kong.yml:/kong/kong.yml:ro
+      - ../../scripts:/scripts:ro
+    depends_on:
+      supabase-db:
+        condition: service_healthy
+    healthcheck:
+      <<: *healthcheck-defaults
+      test: ["CMD", "kong", "health"]
+
+  # Supabase PostgreSQL
+  supabase-db:
+    image: supabase/postgres:15.8.1.74
+    profiles: ["core"]
+    <<: *common-env
+    environment:
+      - POSTGRES_PASSWORD=${SUPABASE_DB_PASS}
+      - POSTGRES_DB=postgres
+      - POSTGRES_INITDB_ARGS=--auth-host=scram-sha-256
+    volumes:
+      - supabase_db:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    command: >
+      postgres
+      -c max_connections=200
+      -c shared_buffers=256MB
+      -c effective_cache_size=1GB
+      -c maintenance_work_mem=128MB
+      -c checkpoint_completion_target=0.9
+      -c wal_buffers=16MB
+      -c default_statistics_target=100
+
+  # Supabase Auth (GoTrue)
+  supabase-auth:
+    image: supabase/gotrue:v2.167.0
+    profiles: ["core"]
+    <<: *common-env
+    environment:
+      - GOTRUE_DB_DRIVER=postgres
+      - GOTRUE_DB_DATABASE_URL=postgres://postgres:${SUPABASE_DB_PASS}@supabase-db:5432/postgres
+      - GOTRUE_SITE_URL=http://localhost:3001
+      - GOTRUE_URI_ALLOW_LIST=*
+      - GOTRUE_JWT_SECRET=${SUPABASE_JWT_SECRET}
+      - GOTRUE_JWT_EXP=3600
+      - GOTRUE_JWT_DEFAULT_GROUP_NAME=authenticated
+      - GOTRUE_EXTERNAL_EMAIL_ENABLED=true
+      - GOTRUE_MAILER_AUTOCONFIRM=true
+      - GOTRUE_DISABLE_SIGNUP=false
+      - API_EXTERNAL_URL=http://localhost:8000
+    depends_on:
+      supabase-db:
+        condition: service_healthy
+    healthcheck:
+      <<: *healthcheck-defaults
+      test: ["CMD", "curl", "-f", "http://localhost:9999/health"]
+
+  # Supabase REST (PostgREST)
+  supabase-rest:
+    image: postgrest/postgrest:v12.2.0
+    profiles: ["core"]
+    <<: *common-env
+    environment:
+      - PGRST_DB_URI=postgres://postgres:${SUPABASE_DB_PASS}@supabase-db:5432/postgres
+      - PGRST_DB_SCHEMAS=public,storage,graphql_public
+      - PGRST_DB_ANON_ROLE=anon
+      - PGRST_JWT_SECRET=${SUPABASE_JWT_SECRET}
+      - PGRST_DB_USE_LEGACY_GUCS=false
+    depends_on:
+      supabase-db:
+        condition: service_healthy
+    healthcheck:
+      <<: *healthcheck-defaults
+      test: ["CMD", "curl", "-f", "http://localhost:3000/"]
+
+  # Supabase Realtime
+  supabase-realtime:
+    image: supabase/realtime:v2.36.6
+    profiles: ["core"]
+    <<: *common-env
+    environment:
+      - DB_HOST=supabase-db
+      - DB_PORT=5432
+      - DB_USER=postgres
+      - DB_PASSWORD=${SUPABASE_DB_PASS}
+      - DB_NAME=postgres
+      - DB_AFTER_CONNECT_QUERY=SET search_path TO _realtime,public
+      - PORT=4000
+      - SECRET_KEY_BASE=${SUPABASE_JWT_SECRET}
+      - ERL_AFLAGS=-proto_dist inet_tcp
+    depends_on:
+      supabase-db:
+        condition: service_healthy
+    healthcheck:
+      <<: *healthcheck-defaults
+      test: ["CMD", "curl", "-f", "http://localhost:4000/health"]
+
+  # Supabase Storage
+  supabase-storage:
+    image: supabase/storage-api:v1.12.4
+    profiles: ["core"]
+    <<: *common-env
+    environment:
+      - ANON_KEY=${SUPABASE_ANON_KEY}
+      - SERVICE_KEY=${SUPABASE_SERVICE_KEY}
+      - POSTGREST_URL=http://supabase-rest:3000
+      - PGRST_JWT_SECRET=${SUPABASE_JWT_SECRET}
+      - DATABASE_URL=postgres://postgres:${SUPABASE_DB_PASS}@supabase-db:5432/postgres
+      - FILE_SIZE_LIMIT=52428800
+      - STORAGE_BACKEND=file
+      - FILE_STORAGE_BACKEND_PATH=/var/lib/storage
+      - TENANT_ID=stub
+      - REGION=local
+      - GLOBAL_S3_BUCKET=supabase-storage
+    volumes:
+      - supabase_storage:/var/lib/storage
+    depends_on:
+      supabase-db:
+        condition: service_healthy
+      supabase-rest:
+        condition: service_healthy
+    healthcheck:
+      <<: *healthcheck-defaults
+      test: ["CMD", "curl", "-f", "http://localhost:5000/status"]
+
+  # Supabase Edge Functions
+  supabase-functions:
+    image: supabase/edge-runtime:v1.64.4
+    profiles: ["core"]
+    <<: *common-env
+    environment:
+      - JWT_SECRET=${SUPABASE_JWT_SECRET}
+      - SUPABASE_URL=http://kong:8000
+      - SUPABASE_ANON_KEY=${SUPABASE_ANON_KEY}
+      - SUPABASE_SERVICE_KEY=${SUPABASE_SERVICE_KEY}
+      - VERIFY_JWT=true
+      - IMPORT_MAP_PATH=/home/deno/import_map.json
+    volumes:
+      - supabase_functions:/home/deno/functions
+    depends_on:
+      supabase-db:
+        condition: service_healthy
+    healthcheck:
+      <<: *healthcheck-defaults
+      test: ["CMD", "curl", "-f", "http://localhost:9000/health"]
+
+  # ==========================================
+  # TEMPORAL - Durable Execution
+  # ==========================================
+  temporal:
+    image: temporalio/auto-setup:1.26
+    profiles: ["core"]
+    <<: *common-env
+    ports:
+      - "127.0.0.1:7233:7233"
+      - "127.0.0.1:8233:8233"
+    environment:
+      - DB=postgresql
+      - DB_PORT=5432
+      - POSTGRES_USER=temporal
+      - POSTGRES_PWD=${TEMPORAL_DB_PASS}
+      - POSTGRES_SEEDS=temporal-db
+      - DEFAULT_NAMESPACE=default
+      - ENABLE_UI=true
+    volumes:
+      - temporal_data:/etc/temporal
+    depends_on:
+      temporal-db:
+        condition: service_healthy
+    healthcheck:
+      <<: *healthcheck-defaults
+      test: ["CMD", "tctl", "workflow", "list"]
+      start_period: 40s
+
+  temporal-db:
+    image: postgres:16-alpine
+    profiles: ["core"]
+    <<: *common-env
+    environment:
+      - POSTGRES_USER=temporal
+      - POSTGRES_PASSWORD=${TEMPORAL_DB_PASS}
+      - POSTGRES_DB=temporal
+    volumes:
+      - temporal_db:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U temporal"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  n8n_data:
+  postiz_data:
+  postiz_db:
+  postiz_redis:
+  forgejo_data:
+  forgejo_db:
+  supabase_db:
+  supabase_storage:
+  supabase_functions:
+  temporal_data:
+  temporal_db:
+
+networks:
+  default:
+    name: co-glitch-core

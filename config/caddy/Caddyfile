@@ -1,0 +1,167 @@
+# Co-Glitch Caddyfile - Tailnet-only Reverse Proxy
+# Für VPS: Ports 8443-8447 mit Basic Auth
+# Auth-Hash: caddy hash-password --plaintext 'passwort' -> in .env CADDY_ADMIN_HASH
+
+{
+    admin off
+    auto_https off
+}
+
+# Import Environment Variable für Auth
+# Format: {env.CADDY_ADMIN_HASH}
+
+# ------------------------------------------
+# Uptime Kuma (Port 8443)
+# ------------------------------------------
+:8443 {
+    basicauth {
+        admin {env.CADDY_ADMIN_HASH}
+    }
+    header {
+        Strict-Transport-Security "max-age=31536000"
+        X-Content-Type-Options "nosniff"
+        X-Frame-Options "DENY"
+        Referrer-Policy "strict-origin-when-cross-origin"
+    }
+    ratelimit {
+        zone kuma 100 10s
+        key {remote_host}
+    }
+    reverse_proxy 127.0.0.1:3001 {
+        transport http {
+            read_timeout 30s
+            write_timeout 30s
+        }
+    }
+    log {
+        output file /var/log/caddy/kuma-access.log {
+            roll_size 10mb
+            roll_keep 3
+        }
+        format json
+    }
+}
+
+# ------------------------------------------
+# Beszel (Port 8444)
+# ------------------------------------------
+:8444 {
+    basicauth {
+        admin {env.CADDY_ADMIN_HASH}
+    }
+    header {
+        Strict-Transport-Security "max-age=31536000"
+        X-Content-Type-Options "nosniff"
+        X-Frame-Options "DENY"
+    }
+    ratelimit {
+        zone beszel 100 10s
+        key {remote_host}
+    }
+    reverse_proxy 127.0.0.1:8090 {
+        transport http {
+            read_timeout 30s
+            write_timeout 30s
+        }
+    }
+    log {
+        output file /var/log/caddy/beszel-access.log {
+            roll_size 10mb
+            roll_keep 3
+        }
+        format json
+    }
+}
+
+# ------------------------------------------
+# Dozzle (Port 8445)
+# ------------------------------------------
+:8445 {
+    basicauth {
+        admin {env.CADDY_ADMIN_HASH}
+    }
+    header {
+        Strict-Transport-Security "max-age=31536000"
+        X-Content-Type-Options "nosniff"
+        X-Frame-Options "DENY"
+    }
+    ratelimit {
+        zone dozzle 100 10s
+        key {remote_host}
+    }
+    reverse_proxy 127.0.0.1:8082 {
+        transport http {
+            read_timeout 30s
+            write_timeout 30s
+        }
+    }
+    log {
+        output file /var/log/caddy/dozzle-access.log {
+            roll_size 10mb
+            roll_keep 3
+        }
+        format json
+    }
+}
+
+# ------------------------------------------
+# cAdvisor (Port 8446)
+# ------------------------------------------
+:8446 {
+    basicauth {
+        admin {env.CADDY_ADMIN_HASH}
+    }
+    header {
+        Strict-Transport-Security "max-age=31536000"
+        X-Content-Type-Options "nosniff"
+        X-Frame-Options "DENY"
+    }
+    ratelimit {
+        zone cadvisor 50 10s
+        key {remote_host}
+    }
+    reverse_proxy 127.0.0.1:8080 {
+        transport http {
+            read_timeout 30s
+            write_timeout 30s
+        }
+    }
+    log {
+        output file /var/log/caddy/cadvisor-access.log {
+            roll_size 10mb
+            roll_keep 3
+        }
+        format json
+    }
+}
+
+# ------------------------------------------
+# n8n (Port 8447) - für externe Webhooks
+# ------------------------------------------
+:8447 {
+    basicauth {
+        admin {env.CADDY_ADMIN_HASH}
+    }
+    header {
+        Strict-Transport-Security "max-age=31536000"
+        X-Content-Type-Options "nosniff"
+        X-Frame-Options "DENY"
+    }
+    ratelimit {
+        zone n8n 200 10s
+        key {remote_host}
+    }
+    reverse_proxy 127.0.0.1:5678 {
+        transport http {
+            read_timeout 60s
+            write_timeout 60s
+        }
+    }
+    log {
+        output file /var/log/caddy/n8n-access.log {
+            roll_size 10mb
+            roll_keep 3
+        }
+        format json
+    }
+}

@@ -1,0 +1,59 @@
+version: '3.8'
+
+# Co-Glitch Voice Stack
+# Profile: voice
+# Services: Whisper STT Server
+
+x-common-env: &common-env
+  env_file:
+    - ../../.env
+  restart: unless-stopped
+  logging:
+    driver: "json-file"
+    options:
+      max-size: "10m"
+      max-file: "3"
+
+services:
+  # ==========================================
+  # WHISPER SERVER - Speech to Text
+  # ==========================================
+  whisper-server:
+    image: ghcr.io/onyx-dot-app/whisper-api:latest
+    profiles: ["voice"]
+    <<: *common-env
+    ports:
+      - "127.0.0.1:8081:9000"
+    environment:
+      - ASR_MODEL=base
+      - ASR_ENGINE=whisper
+      - WHISPER_API_KEY=  # Optional: API Key für Auth
+    volumes:
+      - whisper_models:/root/.cache/whisper
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+        reservations:
+          memory: 1G
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    # GPU Support (optional, für NVIDIA GPUs)
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - driver: nvidia
+    #           count: 1
+    #           capabilities: [gpu]
+
+volumes:
+  whisper_models:
+
+networks:
+  default:
+    name: co-glitch-voice

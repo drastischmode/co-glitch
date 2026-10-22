@@ -1,0 +1,490 @@
+version: '3.8'
+
+# Co-Glitch Client Stack - Alle Dienste laufen lokal auf dem Client
+# Profile: client (Kern), client-ollama (optional), client-extended (optional)
+# Labels: co-glitch.tier=client für Health-Check Filterung
+# Netzwerk-Segmentierung: net-backend (DB), net-frontend (Apps), net-ai (Ollama)
+
+x-base-service: &base-service
+  env_file:
+    - ../../.env
+  restart: unless-stopped
+  logging:
+    driver: "json-file"
+    options:
+      max-size: "10m"
+      max-file: "3"
+  labels:
+    - "co-glitch.tier=client"
+  security_opt:
+    - no-new-privileges:true
+
+x-healthcheck-db: &healthcheck-db
+  test: ["CMD-SHELL", "pg_isready -U postgres -d postgres"]
+  interval: 10s
+  timeout: 5s
+  retries: 5
+  start_period: 30s
+
+x-healthcheck-http: &healthcheck-http
+  interval: 30s
+  timeout: 10s
+  retries: 3
+  start_period: 30s
+
+# Complete service templates with base + resources combined
+x-service-small: &service-small
+  env_file:
+    - ../../.env
+  restart: unless-stopped
+  logging:
+    driver: "json-file"
+    options:
+      max-size: "10m"
+      max-file: "3"
+  labels:
+    - "co-glitch.tier=client"
+  security_opt:
+    - no-new-privileges:true
+  deploy:
+    resources:
+      limits:
+        cpus: "0.5"
+        memory: "512m"
+      reservations:
+        memory: "128m"
+
+x-service-medium: &service-medium
+  env_file:
+    - ../../.env
+  restart: unless-stopped
+  logging:
+    driver: "json-file"
+    options:
+      max-size: "10m"
+      max-file: "3"
+  labels:
+    - "co-glitch.tier=client"
+  security_opt:
+    - no-new-privileges:true
+  deploy:
+    resources:
+      limits:
+        cpus: "1.0"
+        memory: "1g"
+      reservations:
+        memory: "256m"
+
+x-service-large: &service-large
+  env_file:
+    - ../../.env
+  restart: unless-stopped
+  logging:
+    driver: "json-file"
+    options:
+      max-size: "10m"
+      max-file: "3"
+  labels:
+    - "co-glitch.tier=client"
+  security_opt:
+    - no-new-privileges:true
+  deploy:
+    resources:
+      limits:
+        cpus: "2.0"
+        memory: "2g"
+      reservations:
+        memory: "512m"
+
+x-service-ollama: &service-ollama
+  env_file:
+    - ../../.env
+  restart: unless-stopped
+  logging:
+    driver: "json-file"
+    options:
+      max-size: "10m"
+      max-file: "3"
+  labels:
+    - "co-glitch.tier=client"
+  security_opt:
+    - no-new-privileges:true
+  deploy:
+    resources:
+      limits:
+        cpus: "4.0"
+        memory: "8g"
+      reservations:
+        memory: "4g"
+
+services:
+  # ==========================================
+  # NETZWERKE
+  # ==========================================
+  # net-backend: DB-only (supabase-db, supabase-kong, forgejo)
+  # net-frontend: User-facing Apps (n8n, forgejo-web, postiz, kuma, dozzle, beszel, cadvisor)
+  # net-ai: Ollama (nur von n8n/opencode erreichbar)
+
+  # ==========================================
+  # SUPABASE DB - PostgreSQL für alle Dienste
+  # ==========================================
+  supabase-db:
+    image: supabase/postgres:15.8.1.060
+    profiles: ["client"]
+    <<: *service-large
+    user: "postgres:postgres"
+    cap_drop: [ALL]
+    cap_add: [CHOWN, SETGID, SETUID]
+    environment:
+      POSTGRES_PASSWORD: ${SUPABASE_DB_PASS}
+      POSTGRES_DB: postgres
+    volumes:
+      - supabase_db:/var/lib/postgresql/data
+    ports:
+      - "127.0.0.1:5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    networks:
+      - net-backend
+
+  # ==========================================
+  # SUPABASE KONG - API Gateway
+  # ==========================================
+  supabase-kong:
+    image: kong:2.8.1
+    profiles: ["client"]
+    <<: *service-medium
+    user: "kong:kong"
+    cap_drop: [ALL]
+    cap_add: [NET_BIND_SERVICE]
+    ports:
+      - "127.0.0.1:8000:8000"
+    environment:
+      KONG_DATABASE: "off"
+      KONG_DECLARATIVE_CONFIG: /home/kong/kong.yml
+      KONG_PLUGINS: request-transformer,cors,key-auth,acl
+    volumes:
+      - ./supabase-kong.yml:/home/kong/kong.yml:ro
+    depends_on:
+      supabase-db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:8000"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    networks:
+      - net-backend
+      - net-frontend
+
+  # ==========================================
+  # N8N - Workflow Automation
+  # ==========================================
+  n8n:
+    image: n8nio/n8n:1.82.0
+    profiles: ["client"]
+    <<: *service-medium
+    user: "node:node"
+    cap_drop: [ALL]
+    cap_add: [CHOWN, SETGID, SETUID]
+    ports:
+      - "127.0.0.1:5678:5678"
+    volumes:
+      - n8n_data:/home/node/.n8n
+    environment:
+      - N8N_HOST=localhost
+      - WEBHOOK_URL=http://localhost:5678/
+      - N8N_ENFORCE_SETTINGS_FILE_PERMISSIONS=true
+      - GENERIC_TIMEZONE=${TZ}
+    depends_on:
+      supabase-db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:5678/healthz"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks:
+      - net-frontend
+      - net-backend
+      - net-ai
+
+  # ==========================================
+  # FORGEJO - Git Hosting
+  # ==========================================
+  forgejo:
+    image: codeberg.org/forgejo/forgejo:9
+    profiles: ["client"]
+    <<: *service-medium
+    user: "1000:1000"
+    cap_drop: [ALL]
+    cap_add: [CHOWN, SETGID, SETUID, NET_BIND_SERVICE]
+    ports:
+      - "127.0.0.1:3000:3000"
+      - "127.0.0.1:2222:22"
+    volumes:
+      - forgejo_data:/data
+      - /etc/timezone:/etc/timezone:ro
+      - /etc/localtime:/etc/localtime:ro
+    environment:
+      - USER_UID=1000
+      - USER_GID=1000
+      - DB_TYPE=postgres
+      - DB_HOST=supabase-db:5432
+      - DB_NAME=forgejo
+      - DB_USER=forgejo
+      - DB_PASSWD=${FORGEJO_DB_PASS}
+      - APP_NAME="co-glitch Forgejo"
+      - RUN_MODE=prod
+      - DOMAIN=localhost
+      - SSH_PORT=2222
+    depends_on:
+      supabase-db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:3000/api/healthz"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    networks:
+      - net-frontend
+      - net-backend
+
+  # ==========================================
+  # POSTIZ - Social Media Scheduling
+  # ==========================================
+  postiz:
+    image: ghcr.io/gitroomhq/postiz-app:v0.5.0
+    profiles: ["client"]
+    <<: *service-medium
+    user: "node:node"
+    cap_drop: [ALL]
+    cap_add: [CHOWN, SETGID, SETUID]
+    ports:
+      - "127.0.0.1:4007:4007"
+    environment:
+      - JWT_SECRET=${POSTIZ_JWT_SECRET}
+      - DISABLE_REGISTRATION=true
+      - MAIN_URL=http://localhost:4007
+      - FRONTEND_URL=http://localhost:4007
+      - NEXT_PUBLIC_BACKEND_URL=http://localhost:4007/api
+    volumes:
+      - postiz_data:/app/data
+    depends_on:
+      supabase-db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:4007/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks:
+      - net-frontend
+      - net-backend
+
+  # ==========================================
+  # UPTIME KUMA - Monitoring
+  # ==========================================
+  uptime-kuma:
+    image: louislam/uptime-kuma:1.23.16
+    profiles: ["client"]
+    <<: *service-small
+    user: "node:node"
+    cap_drop: [ALL]
+    cap_add: [CHOWN, SETGID, SETUID]
+    ports:
+      - "127.0.0.1:3001:3001"
+    volumes:
+      - kuma_data:/app/data
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:3001/api/status"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - net-frontend
+
+  # ==========================================
+  # DOZZLE - Container Logs UI
+  # ==========================================
+  dozzle:
+    image: amir20/dozzle:v7.3.0
+    profiles: ["client"]
+    <<: *service-small
+    user: "root:root"
+    cap_drop: [ALL]
+    cap_add: [CHOWN, SETGID, SETUID]
+    ports:
+      - "127.0.0.1:8082:8080"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:8080/healthz"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - net-frontend
+
+  # ==========================================
+  # BESZEL HUB - System Monitoring
+  # ==========================================
+  beszel:
+    image: henrygd/beszel:v0.12.0
+    profiles: ["client"]
+    <<: *service-small
+    user: "root:root"
+    cap_drop: [ALL]
+    cap_add: [CHOWN, SETGID, SETUID]
+    ports:
+      - "127.0.0.1:8090:8090"
+    volumes:
+      - beszel_data:/beszel_data
+    environment:
+      - HTTP_PORT=8090
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:8090/system/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - net-frontend
+
+  # ==========================================
+  # BESZEL AGENT - für lokale Metriken
+  # ==========================================
+  beszel-agent:
+    image: henrygd/beszel-agent:v0.12.0
+    profiles: ["client"]
+    <<: *service-small
+    user: "root:root"
+    cap_drop: [ALL]
+    cap_add: [CHOWN, SETGID, SETUID]
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - /:/hostfs:ro
+    environment:
+      - HUB_URL=http://beszel:8090
+      - KEY=${BESZEL_AGENT_KEY:-}
+    depends_on:
+      - beszel
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:8090/system/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    networks:
+      - net-frontend
+
+  # ==========================================
+  # CADVISOR - Container Resource Metrics
+  # ==========================================
+  cadvisor:
+    image: gcr.io/cadvisor/cadvisor:v0.49.1
+    profiles: ["client"]
+    <<: *service-small
+    user: "root:root"
+    cap_drop: [ALL]
+    cap_add: [SYS_ADMIN, SYS_RESOURCE, DAC_OVERRIDE]
+    ports:
+      - "127.0.0.1:8080:8080"
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:ro
+      - /sys:/sys:ro
+      - /var/lib/docker/:/var/lib/docker:ro
+      - /dev/disk/:/dev/disk:ro
+    devices:
+      - /dev/kmsg:/dev/kmsg:ro
+    environment:
+      - STORAGE_DURATION=2m0s
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:8080/healthz"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - net-frontend
+
+  # ==========================================
+  # DIUN - Docker Image Update Notifier (Extended)
+  # ==========================================
+  diun:
+    image: crazymax/diun:v5.12.0
+    profiles: ["client-extended"]
+    <<: *service-small
+    user: "root:root"
+    cap_drop: [ALL]
+    cap_add: [CHOWN, SETGID, SETUID]
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - diun_data:/data
+    environment:
+      - TZ=${TZ}
+      - LOG_LEVEL=info
+      - LOG_JSON=false
+      - WATCH_WORKERS=5
+      - WATCH_SCHEDULE="0 */6 * * *"
+      - WATCH_BY_DEFAULT="true"
+      - WATCH_INCLUDE="co-glitch-*"
+    networks:
+      - net-frontend
+
+  # ==========================================
+  # OLLAMA - Lokale KI (Optional, eigener Profile)
+  # ==========================================
+  ollama:
+    image: ollama/ollama:0.5.12
+    profiles: ["client-ollama"]
+    <<: *service-ollama
+    user: "root:root"
+    cap_drop: [ALL]
+    cap_add: [CHOWN, SETGID, SETUID]
+    ports:
+      - "127.0.0.1:11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    environment:
+      - OLLAMA_HOST=0.0.0.0
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:11434/api/tags"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    networks:
+      - net-ai
+
+volumes:
+  supabase_db:
+  n8n_data:
+  forgejo_data:
+  postiz_data:
+  kuma_data:
+  beszel_data:
+  diun_data:
+  ollama_data:
+
+networks:
+  net-backend:
+    name: co-glitch-backend
+    driver: bridge
+    internal: true
+  net-frontend:
+    name: co-glitch-frontend
+    driver: bridge
+  net-ai:
+    name: co-glitch-ai
+    driver: bridge
+    internal: true

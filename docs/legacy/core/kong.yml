@@ -1,0 +1,152 @@
+_format_version: "3.0"
+_transform: true
+
+# Kong Declarative Config für Supabase
+# WICHTIG: Kong unterstützt KEINE ${VAR} Substitution in declarative config!
+# Die Keys müssen zur Build-Zeit injiziert werden oder via Kong Admin API.
+# Dieser File wird als Template behandelt - echte Keys via entrypoint script injiziert.
+
+services:
+  # Auth Service (GoTrue)
+  - name: supabase-auth
+    url: http://supabase-auth:9999
+    routes:
+      - name: auth-route
+        paths:
+          - /auth/v1
+    plugins:
+      - name: cors
+        config:
+          origins:
+            - "*"
+          methods:
+            - GET
+            - POST
+            - PUT
+            - DELETE
+            - OPTIONS
+          headers:
+            - Accept
+            - Authorization
+            - Content-Type
+            - apikey
+          exposed_headers:
+            - X-Total-Count
+          credentials: true
+          max_age: 3600
+
+  # REST Service (PostgREST)
+  - name: supabase-rest
+    url: http://supabase-rest:3000
+    routes:
+      - name: rest-route
+        paths:
+          - /rest/v1
+    plugins:
+      - name: cors
+        config:
+          origins:
+            - "*"
+          methods:
+            - GET
+            - POST
+            - PATCH
+            - DELETE
+            - OPTIONS
+          headers:
+            - Accept
+            - Authorization
+            - Content-Type
+            - apikey
+            - Prefer
+          exposed_headers:
+            - Content-Range
+            - X-Total-Count
+          credentials: true
+          max_age: 3600
+
+  # Realtime Service
+  - name: supabase-realtime
+    url: http://supabase-realtime:4000
+    routes:
+      - name: realtime-route
+        paths:
+          - /realtime/v1
+    plugins:
+      - name: cors
+        config:
+          origins:
+            - "*"
+          methods:
+            - GET
+            - POST
+            - OPTIONS
+          headers:
+            - Accept
+            - Authorization
+            - Content-Type
+            - apikey
+          credentials: true
+          max_age: 3600
+
+  # Storage Service
+  - name: supabase-storage
+    url: http://supabase-storage:5000
+    routes:
+      - name: storage-route
+        paths:
+          - /storage/v1
+    plugins:
+      - name: cors
+        config:
+          origins:
+            - "*"
+          methods:
+            - GET
+            - POST
+            - DELETE
+            - OPTIONS
+          headers:
+            - Accept
+            - Authorization
+            - Content-Type
+            - apikey
+          credentials: true
+          max_age: 3600
+
+  # Edge Functions
+  - name: supabase-functions
+    url: http://supabase-functions:9000
+    routes:
+      - name: functions-route
+        paths:
+          - /functions/v1
+    plugins:
+      - name: cors
+        config:
+          origins:
+            - "*"
+          methods:
+            - GET
+            - POST
+            - OPTIONS
+          headers:
+            - Accept
+            - Authorization
+            - Content-Type
+            - apikey
+          credentials: true
+          max_age: 3600
+
+# Consumers mit Keys werden zur Runtime via Kong Admin API erstellt
+# (declarative config unterstützt keine env vars für credentials)
+# Siehe: scripts/supabase-kong-init.sh für Initialisierung
+
+plugins:
+  # Key-Auth Plugin wird global auf alle Routes angewendet
+  # Credentials werden zur Runtime gesetzt
+  - name: key-auth
+    config:
+      key_names:
+        - apikey
+      hide_credentials: true

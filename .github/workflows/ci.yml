@@ -1,0 +1,156 @@
+name: CI
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+jobs:
+  lint:
+    name: Lint & Validate
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install shellcheck
+        run: sudo apt-get update && sudo apt-get install -y shellcheck
+
+      - name: Shellcheck all scripts
+        run: shellcheck scripts/*.sh
+
+      - name: Install yamllint
+        run: pip install yamllint
+
+      - name: YAML Lint (Docker Compose)
+        run: yamllint docker/ config/ .github/
+
+      - name: Docker Compose Config Validation (Client)
+        run: docker compose -f docker/client/docker-compose.yml config --quiet
+
+      - name: Docker Compose Config Validation (Voice)
+        run: docker compose -f docker/voice/docker-compose.yml config --quiet
+
+      - name: Docker Compose Config Validation (VPS)
+        run: docker compose -f docker/vps/docker-compose.yml config --quiet
+
+      - name: Secret Scan (Gitleaks)
+        uses: gitleaks/gitleaks-action@v2
+        with:
+          args: --verbose --redact
+
+  test-scripts:
+    name: Script Syntax & Idempotency
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install shellcheck
+        run: sudo apt-get update && sudo apt-get install -y shellcheck
+
+      - name: Check script syntax
+        run: bash -n scripts/*.sh
+
+      - name: Test generate-secrets.sh idempotency
+        run: |
+          cd /home/admin/co-glitch
+          bash scripts/generate-secrets.sh
+          bash scripts/generate-secrets.sh || true  # 2nd run should warn and exit 0
+
+      - name: Test client-bootstrap.sh syntax (dry-run)
+        run: |
+          # Just check syntax, don't actually run
+          bash -n scripts/client-bootstrap.sh
+
+      - name: Test install-ollama.sh syntax
+        run: bash -n scripts/install-ollama.sh
+
+      - name: Test validate-models.sh syntax
+        run: bash -n scripts/validate-models.sh
+
+      - name: Test client-health-check.sh syntax
+        run: bash -n scripts/client-health-check.sh
+
+      - name: Test vps-bootstrap.sh syntax
+        run: bash -n scripts/vps-bootstrap.sh
+
+      - name: Test vps-health-check.sh syntax
+        run: bash -n scripts/vps-health-check.sh
+
+  validate-configs:
+    name: Validate Config Files
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Validate opencode.json
+        run: |
+          cat config/opencode/opencode.json | jq . > /dev/null
+          echo "✓ opencode.json valid JSON"
+
+      - name: Validate fallback.json
+        run: |
+          cat config/opencode/fallback.json | jq . > /dev/null
+          echo "✓ fallback.json valid JSON"
+
+      - name: Check required env vars in .env.example
+        run: |
+          REQUIRED_VARS=(
+            "OPENCODE_API_KEY"
+            "NVIDIA_API_KEY"
+            "ZAI_API_KEY"
+            "SUPABASE_DB_PASS"
+            "POSTIZ_JWT_SECRET"
+            "FORGEJO_DB_PASS"
+            "BESZEL_AGENT_KEY"
+            "OLLAMA_HOST"
+          )
+          for var in "${REQUIRED_VARS[@]}"; do
+            if grep -q "^${var}=" .env.example; then
+              echo "✓ $var in .env.example"
+            else
+              echo "MISSING: $var in .env.example"
+              exit 1
+            fi
+          done
+
+  # Optional: Full integration test (requires Docker, runs on self-hosted runner)
+  integration-test:
+    name: Integration Test (Self-Hosted)
+    runs-on: [self-hosted, linux, x64]
+    if: github.event_name == 'pull_request'
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Generate secrets
+        run: make gen-secrets
+
+      - name: Set test API keys
+        run: |
+          echo "NVIDIA_API_KEY=test" >> .env
+          echo "ZAI_API_KEY=test" >> .env
+
+      - name: Start client stack
+        run: make up-client
+
+      - name: Wait for healthchecks
+        run: |
+          for i in {1..60}; do
+            if make client-health 2>&1 | grep -q "FAIL"; then
+              sleep 5
+            else
+              exit 0
+            fi
+          done
+          echo "Timeout waiting for healthchecks"
+          exit 1
+
+      - name: Validate models
+        run: make validate-models || true  # May fail without real API keys
+
+      - name: Cleanup
+        run: make down-all

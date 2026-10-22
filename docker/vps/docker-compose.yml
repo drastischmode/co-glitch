@@ -1,0 +1,77 @@
+version: '3.8'
+
+# Co-Glitch VPS Stack - OPTIONAL
+# Nur starten, wenn ein VPS mit öffentlicher IP genutzt wird.
+# make up-vps
+# Profile: vps
+# Enthält: Caddy Reverse Proxy, Tailscale (Exit-Node), Keepalive
+
+x-common-env: &common-env
+  env_file:
+    - ../../.env
+  restart: unless-stopped
+  logging:
+    driver: "json-file"
+    options:
+      max-size: "10m"
+      max-file: "3"
+  labels:
+    - "co-glitch.tier=vps"
+
+services:
+  # ==========================================
+  # CADDY REVERSE PROXY - Tailnet Expose
+  # ==========================================
+  caddy:
+    image: caddy:2.8-alpine
+    profiles: ["vps"]
+    <<: *common-env
+    network_mode: host
+    volumes:
+      - ../../config/caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+      - /var/log/caddy:/var/log/caddy
+    environment:
+      - CADDY_ADMIN_HASH=${CADDY_ADMIN_HASH}
+    cap_add:
+      - NET_BIND_SERVICE
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:2019/metrics"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+  # ==========================================
+  # TAILSCALE - Exit Node / Subnet Router (Optional)
+  # ==========================================
+  tailscale:
+    image: tailscale/tailscale:latest
+    profiles: ["vps"]
+    <<: *common-env
+    network_mode: host
+    cap_add:
+      - NET_ADMIN
+      - SYS_MODULE
+    volumes:
+      - tailscale_state:/var/lib/tailscale
+    environment:
+      - TS_AUTHKEY=${TAILSCALE_AUTHKEY}
+      - TS_EXTRA_ARGS=--advertise-exit-node --advertise-routes=10.0.0.0/8
+    command: tailscaled --tun=userspace-networking
+    healthcheck:
+      test: ["CMD-SHELL", "tailscale status --json | jq -r '.BackendState' | grep -q Running"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+volumes:
+  caddy_data:
+  caddy_config:
+  tailscale_state:
+
+networks:
+  default:
+    name: co-glitch-vps

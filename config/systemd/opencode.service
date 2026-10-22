@@ -1,0 +1,24 @@
+[Unit]
+Description=OpenCode Server (co-glitch client)
+Documentation=https://opencode.ai
+After=network-online.target docker.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=%i
+WorkingDirectory=%h/co-glitch
+ExecStart=/usr/bin/env opencode serve --port 4000
+Restart=on-failure
+RestartSec=10
+EnvironmentFile=%h/co-glitch/.env
+
+# Security
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=%h/co-glitch
+
+[Install]
+WantedBy=default.target

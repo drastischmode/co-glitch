@@ -1,0 +1,52 @@
+version: '3.8'
+
+# Co-Glitch Caddy Reverse Proxy
+# Profile: proxy (optional, kann auch auf Host laufen)
+# Ports: 8443-8447 (Tailnet only, Basic Auth)
+
+x-common-env: &common-env
+  env_file:
+    - ../../.env
+  restart: unless-stopped
+  logging:
+    driver: "json-file"
+    options:
+      max-size: "10m"
+      max-file: "3"
+
+services:
+  caddy:
+    image: caddy:2.8-alpine
+    profiles: ["proxy"]
+    <<: *common-env
+    # Host Network nötig für Tailnet IPs + Ports < 1024 ohne CAP_NET_BIND_SERVICE
+    # Alternative: Ports explizit publizieren (8443-8447) und network_mode: bridge
+    network_mode: host
+    volumes:
+      - ../../config/caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+      - /var/log/caddy:/var/log/caddy
+    environment:
+      - CADDY_AUTH_HASH_KUMA=${CADDY_AUTH_HASH_KUMA}
+      - CADDY_AUTH_HASH_BESZEL=${CADDY_AUTH_HASH_BESZEL}
+      - CADDY_AUTH_HASH_DOZZLE=${CADDY_AUTH_HASH_DOZZLE}
+      - CADDY_AUTH_HASH_CADVISOR=${CADDY_AUTH_HASH_CADVISOR}
+      - CADDY_AUTH_HASH_N8N=${CADDY_AUTH_HASH_N8N}
+    cap_add:
+      - NET_BIND_SERVICE
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:2019/metrics"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+volumes:
+  caddy_data:
+  caddy_config:
+
+networks:
+  default:
+    name: co-glitch-caddy
+    external: false

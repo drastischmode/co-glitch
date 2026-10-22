@@ -1,0 +1,39 @@
+# Secrets & Environment
+.env
+.env.local
+.env.*.local
+
+# Docker
+docker-compose.override.yml
+
+# Logs
+*.log
+logs/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Backup
+*.bak
+*.backup
+
+# Temporary
+tmp/
+temp/
+*.tmp
+
+# Caddy
+config/caddy/Caddyfile.local
+
+# Systemd (local overrides)
+config/systemd/*.local
+
+# Agent artifacts
+agent/

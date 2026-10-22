@@ -1,0 +1,137 @@
+version: '3.8'
+
+# Co-Glitch Monitoring Stack
+# Profile: monitoring
+# Services: Uptime Kuma, Beszel, Dozzle, cAdvisor, Diun
+
+x-common-env: &common-env
+  env_file:
+    - ../../.env
+  restart: unless-stopped
+  logging:
+    driver: "json-file"
+    options:
+      max-size: "10m"
+      max-file: "3"
+
+x-healthcheck-defaults: &healthcheck-defaults
+  interval: 30s
+  timeout: 10s
+  retries: 3
+  start_period: 20s
+
+services:
+  # ==========================================
+  # UPTIME KUMA - Uptime Monitoring
+  # ==========================================
+  uptime-kuma:
+    image: louislam/uptime-kuma:1.23
+    profiles: ["monitoring"]
+    <<: *common-env
+    ports:
+      - "127.0.0.1:3001:3001"
+    volumes:
+      - uptime_kuma_data:/app/data
+    environment:
+      - TZ=${TZ}
+    healthcheck:
+      <<: *healthcheck-defaults
+      test: ["CMD", "curl", "-f", "http://localhost:3001/api/status"]
+      start_period: 30s
+
+  # ==========================================
+  # BESZEL - System Monitoring (Agent + Hub)
+  # ==========================================
+  beszel:
+    image: henrygd/beszel:latest
+    profiles: ["monitoring"]
+    <<: *common-env
+    ports:
+      - "127.0.0.1:8090:8090"
+    volumes:
+      - beszel_data:/beszel_data
+    environment:
+      - HTTP_PORT=8090
+      - TZ=${TZ}
+    healthcheck:
+      <<: *healthcheck-defaults
+      test: ["CMD", "curl", "-f", "http://localhost:8090/system/health"]
+
+  # ==========================================
+  # DOZZLE - Container Logs UI
+  # ==========================================
+  dozzle:
+    image: amir20/dozzle:latest
+    profiles: ["monitoring"]
+    <<: *common-env
+    ports:
+      - "127.0.0.1:8082:8080"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    environment:
+      - DOZZLE_LEVEL=info
+      - DOZZLE_TAILSIZE=500
+    healthcheck:
+      <<: *healthcheck-defaults
+      test: ["CMD", "curl", "-f", "http://localhost:8080/healthz"]
+
+  # ==========================================
+  # CADVISOR - Container Resource Metrics
+  # ==========================================
+  cadvisor:
+    image: gcr.io/cadvisor/cadvisor:v0.49.1
+    profiles: ["monitoring"]
+    <<: *common-env
+    ports:
+      - "127.0.0.1:8080:8080"
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:ro
+      - /sys:/sys:ro
+      - /var/lib/docker/:/var/lib/docker:ro
+      - /dev/disk/:/dev/disk:ro
+    privileged: true
+    devices:
+      - /dev/kmsg:/dev/kmsg:ro
+    environment:
+      - STORAGE_DURATION=2m0s
+    healthcheck:
+      <<: *healthcheck-defaults
+      test: ["CMD", "curl", "-f", "http://localhost:8080/healthz"]
+    # SECURITY NOTE: privileged=true und Host-Volumes sind notwendig für Metriken
+    # Aber erhöhen die Angriffsfläche. Nur im vertrauten Tailnet betreiben!
+
+  # ==========================================
+  # DIUN - Docker Image Update Notifier
+  # ==========================================
+  diun:
+    image: crazymax/diun:latest
+    profiles: ["monitoring"]
+    <<: *common-env
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - diun_data:/data
+    environment:
+      - TZ=${TZ}
+      - LOG_LEVEL=info
+      - LOG_JSON=false
+      - WATCH_WORKERS=5
+      - WATCH_SCHEDULE=0 */6 * * *
+      # SMTP nur setzen wenn konfiguriert
+      - NOTIF_MAIL_HOST=${SMTP_HOST:-}
+      - NOTIF_MAIL_PORT=${SMTP_PORT:-587}
+      - NOTIF_MAIL_USERNAME=${SMTP_USER:-}
+      - NOTIF_MAIL_PASSWORD=${SMTP_PASS:-}
+      - NOTIF_MAIL_FROM=${SMTP_FROM:-}
+      # Watch alle Container im co-glitch Netzwerk
+      - WATCH_BY_DEFAULT=true
+      - WATCH_INCLUDE=co-glitch-*
+
+volumes:
+  uptime_kuma_data:
+  beszel_data:
+  diun_data:
+
+networks:
+  default:
+    name: co-glitch-monitoring
