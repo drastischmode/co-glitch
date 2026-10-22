@@ -37,3 +37,6 @@ config/systemd/*.local
 
 # Agent artifacts
 agent/backups/
+
+backups/
+scripts/*.bak-*
