@@ -43,8 +43,8 @@ echo ""
 
 # 2. NVIDIA NIM
 echo "2. NVIDIA NIM..."
-if [ -n "$NVIDIA_API_KEY" ] && [ "$NVIDIA_API_KEY" != "" ]; then
-    if ! check_endpoint "NVIDIA NIM" "https://integrate.api.nvidia.com/v1/models" "Authorization: Bearer $NVIDIA_API_KEY" "200"; then
+if [ -n "${NVIDIA_API_KEY:-}" ]; then
+    if ! check_endpoint "NVIDIA NIM" "https://integrate.api.nvidia.com/v1/models" "Authorization: Bearer ${NVIDIA_API_KEY}" "200"; then
         FAIL=1
     fi
 else
@@ -54,8 +54,8 @@ echo ""
 
 # 3. z.ai / Zhipu
 echo "3. z.ai / Zhipu..."
-if [ -n "$ZAI_API_KEY" ] && [ "$ZAI_API_KEY" != "" ]; then
-    if ! check_endpoint "z.ai" "https://api.z.ai/api/paas/v4/models" "Authorization: Bearer $ZAI_API_KEY" "200"; then
+if [ -n "${ZAI_API_KEY:-}" ]; then
+    if ! check_endpoint "z.ai" "https://api.z.ai/api/paas/v4/models" "Authorization: Bearer ${ZAI_API_KEY}" "200"; then
         FAIL=1
     fi
 else
@@ -63,11 +63,11 @@ else
 fi
 echo ""
 
-# 4. Ollama
-echo "4. Ollama (lokal)..."
+# 4. Ollama (optional - Faellt zurueck auf Cloud-Provider)
+echo "4. Ollama (lokal, optional)..."
 if ! check_endpoint "Ollama" "http://localhost:11434/v1/models" "" "200"; then
-    echo -e "${YELLOW}[HINT]${NC} Ollama nicht erreichbar -> make install-ollama"
-    FAIL=1
+    echo -e "${YELLOW}[SKIP]${NC} Ollama nicht installiert (optional) -> make install-ollama"
+    echo -e "${YELLOW}[HINT]${NC} Ohne Ollama wird der lokale Offline-Fallback nicht genutzt"
 fi
 echo ""
 

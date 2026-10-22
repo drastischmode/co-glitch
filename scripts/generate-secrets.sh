@@ -22,9 +22,14 @@ fi
 # Wenn .env existiert: Backup anbieten
 if [ -f "$ENV_FILE" ]; then
     echo "WARNUNG: $ENV_FILE existiert bereits."
-    read -rp "Backup erstellen und neu generieren? [j/N] " -n 1
+    if [ ! -t 0 ]; then
+        echo "Nicht-interaktiv (kein TTY) -> Abbruch ohne Änderung."
+        echo "Bestehende .env bleibt unverändert. Manuell: rm .env && make gen-secrets"
+        exit 0
+    fi
+    read -rp "Backup erstellen und neu generieren? [j/N] " -n 1 || true
     echo
-    if [[ ! $REPLY =~ ^[Jj]$ ]]; then
+    if [[ ! ${REPLY:-} =~ ^[Jj]$ ]]; then
         echo "Abbruch. Bestehende .env bleibt unverändert."
         exit 0
     fi
@@ -51,6 +56,13 @@ echo "Generiere sichere Passwörter und Keys..."
 sed -i "s|GENERATE_ME_SUPABASE_PASS|$(generate_hex)|g" "$ENV_FILE"
 sed -i "s|GENERATE_ME_POSTIZ_JWT|$(generate_hex)|g" "$ENV_FILE"
 sed -i "s|GENERATE_ME_FORGEJO_PASS|$(generate_hex)|g" "$ENV_FILE"
+# BESZEL_AGENT_KEY wird NICHT generiert: das ist der Public Key, den der Beszel-Hub
+# beim Anlegen eines Systems ausgibt (Settings -> Systeme -> Hinzufuegen).
+# Ein Zufallswert hier fuehrt zu "ssh: no key found" im Agent (Crash-Loop).
+if grep -q '^BESZEL_AGENT_KEY=""' "$ENV_FILE"; then
+    echo "HINWEIS: BESZEL_AGENT_KEY bleibt leer (Public Key aus dem Beszel-Hub eintragen)."
+    echo "          Ohne Key laeuft der Agent nicht; er ist daher im Profil 'client-extended'."
+fi
 
 # OPENCODE_API_KEY Default setzen falls "public"
 if grep -q '^OPENCODE_API_KEY="public"' "$ENV_FILE"; then

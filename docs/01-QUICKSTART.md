@@ -7,6 +7,17 @@
 - **RAM**: 8 GB empfohlen (16 GB für Ollama + alle Dienste)
 - **Optional VPS**: Ubuntu 22.04/24.04 (Oracle Cloud Free Tier ARM empfohlen)
 - **Tailscale Account** (für Tailnet-Vernetzung)
+- **`make`** — **nicht** auf jedem frischen System vorhanden (verifiziert: Ubuntu 24.04 Cloud-Image hat kein `make`). Vorher installieren:
+
+```bash
+# Ubuntu/Debian
+sudo apt-get update && sudo apt-get install -y make
+# Arch
+sudo pacman -S --needed make
+```
+
+> Ohne `make` scheitert jeder `make ...`-Aufruf mit `make: command not found`.
+> Alternativ direkt: `sudo bash scripts/client-bootstrap.sh`
 
 ---
 

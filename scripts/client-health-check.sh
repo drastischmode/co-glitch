@@ -38,7 +38,7 @@ check "Docker erreichbar" "docker info --format '{{.ServerVersion}}' >/dev/null"
 echo ""
 echo "2. Firewall:"
 check "UFW aktiv" "sudo ufw status | grep -q 'Status: active'"
-check "UFW Forward Policy ACCEPT" "sudo ufw status | grep -q 'DEFAULT_FORWARD_POLICY.*ACCEPT'"
+check "UFW Forward Policy ACCEPT" "grep -q '^DEFAULT_FORWARD_POLICY=\"ACCEPT\"' /etc/default/ufw"
 
 # 3. Container Health (label=co-glitch.tier=client)
 echo ""
@@ -70,22 +70,35 @@ else
     done
 fi
 
-# 4. HTTP Endpunkte (lokal)
+# 4. HTTP Endpunkte (lokal) - nur prüfen, wenn der Container läuft
 echo ""
 echo "4. HTTP Endpunkte:"
-check "n8n (5678)" "curl -sf http://localhost:5678/healthz"
-check "Forgejo (3000)" "curl -sf http://localhost:3000/api/healthz"
-check "Postiz (4007)" "curl -sf http://localhost:4007"
-check "Supabase Kong (8000)" "curl -sf http://localhost:8000"
-check "Uptime Kuma (3001)" "curl -sf http://localhost:3001/api/status"
-check "Dozzle (8082)" "curl -sf http://localhost:8082/healthz"
-check "Beszel Hub (8090)" "curl -sf http://localhost:8090/system/health"
-check "cAdvisor (8080)" "curl -sf http://localhost:8080/healthz"
+http_check() {
+    local name="$1" svc="$2" url="$3"
+    if [ -z "$(docker ps --filter "label=com.docker.compose.service=$svc" -q 2>/dev/null)" ]; then
+        echo -e "${YELLOW}[SKIP]${NC} $name (Container '$svc' läuft nicht)"
+        return 0
+    fi
+    check "$name" "curl -sf $url"
+}
+http_check "n8n (5678)" "n8n" "http://localhost:5678/healthz"
+http_check "Forgejo (3000)" "forgejo" "http://localhost:3000/api/healthz"
+http_check "Postiz (4007)" "postiz" "http://localhost:4007"
+http_check "Supabase Kong (8000)" "supabase-kong" "http://localhost:8000"
+http_check "Uptime Kuma (3001)" "uptime-kuma" "http://localhost:3001/api/status"
+http_check "Dozzle (8082)" "dozzle" "http://localhost:8082/healthz"
+http_check "Beszel Hub (8090)" "beszel" "http://localhost:8090/system/health"
+http_check "cAdvisor (8080)" "cadvisor" "http://localhost:8080/healthz"
 
-# 5. Ollama
+# 5. Ollama (optional)
 echo ""
-echo "5. Ollama (lokal):"
-check "Ollama API (11434)" "curl -sf http://localhost:11434/v1/models"
+echo "5. Ollama (lokal, optional):"
+if curl -sf http://localhost:11434/v1/models >/dev/null 2>&1; then
+    echo -e "${GREEN}[OK]${NC} Ollama API (11434)"
+    PASS=$((PASS+1))
+else
+    echo -e "${YELLOW}[WARN]${NC} Ollama nicht installiert (optional)"
+fi
 
 # 6. Tailscale
 echo ""

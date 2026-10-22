@@ -3,6 +3,14 @@
         vps-setup vps-health up-vps down-vps \
         backup restore update uninstall
 
+# Compose-Aufrufe laden .env explizit aus dem Repo-Root.
+# Ohne --env-file sucht Compose die .env im Verzeichnis der Compose-Datei
+# (docker/client/) und alle Secrets bleiben leer.
+ENVFILE := $(if $(wildcard .env),--env-file .env,)
+COMPOSE_CLIENT := docker compose $(ENVFILE) -f docker/client/docker-compose.yml
+COMPOSE_VOICE  := docker compose $(ENVFILE) -f docker/voice/docker-compose.yml
+COMPOSE_VPS    := docker compose $(ENVFILE) -f docker/vps/docker-compose.yml
+
 help:
 	@echo "co-glitch - Client-First IaC"
 	@echo "=================================="
@@ -41,19 +49,19 @@ validate-models:
 	@bash scripts/validate-models.sh
 
 doctor: validate-models client-health
-	@docker compose -f docker/client/docker-compose.yml config --quiet && echo "✓ Docker Compose Config valid"
-	@docker compose -f docker/voice/docker-compose.yml config --quiet && echo "✓ Voice Compose Config valid"
-	@docker compose -f docker/vps/docker-compose.yml config --quiet && echo "✓ VPS Compose Config valid"
+	@$(COMPOSE_CLIENT) config --quiet && echo "✓ Docker Compose Config valid"
+	@$(COMPOSE_VOICE) config --quiet && echo "✓ Voice Compose Config valid"
+	@$(COMPOSE_VPS) config --quiet && echo "✓ VPS Compose Config valid"
 
 up-client:
-	@docker compose -f docker/client/docker-compose.yml --profile client up -d
+	@$(COMPOSE_CLIENT) --profile client up -d
 
 up-voice:
-	@docker compose -f docker/voice/docker-compose.yml --profile voice up -d
+	@$(COMPOSE_VOICE) --profile voice up -d
 
 down-client:
-	@docker compose -f docker/client/docker-compose.yml down
-	@docker compose -f docker/voice/docker-compose.yml down
+	@$(COMPOSE_CLIENT) down
+	@$(COMPOSE_VOICE) down
 
 client-health:
 	@bash scripts/client-health-check.sh
@@ -77,10 +85,10 @@ vps-setup:
 	@bash scripts/vps-bootstrap.sh
 
 up-vps:
-	@docker compose -f docker/vps/docker-compose.yml --profile vps up -d
+	@$(COMPOSE_VPS) --profile vps up -d
 
 down-vps:
-	@docker compose -f docker/vps/docker-compose.yml down
+	@$(COMPOSE_VPS) down
 
 vps-health:
 	@bash scripts/vps-health-check.sh

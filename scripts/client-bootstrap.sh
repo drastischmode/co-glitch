@@ -39,7 +39,7 @@ case "$ID" in
     ubuntu|debian|linuxmint|pop)
         PM="apt"
         PKGS_BASE="git curl wget openssl jq make tmux rclone ufw fail2ban openssh-client"
-        PKGS_DOCKER="docker.io docker-compose-plugin"
+        PKGS_DOCKER="docker.io"
         PKGS_BUILD="build-essential"
         log_info "Debian-basiert erkannt ($ID)"
         ;;
@@ -74,15 +74,26 @@ if [ "$PM" = "pacman" ]; then
     # Build tools
     $SUDO pacman -Syu --noconfirm --needed $PKGS_BUILD
 elif [ "$PM" = "apt" ]; then
-    $SUDO apt update
-    $SUDO apt install -y $PKGS_BASE
+    export DEBIAN_FRONTEND=noninteractive
+    $SUDO apt-get update
+    $SUDO apt-get install -y $PKGS_BASE
     # Docker
     if ! command -v docker &> /dev/null; then
-        $SUDO apt install -y $PKGS_DOCKER
+        $SUDO apt-get install -y $PKGS_DOCKER
     else
         log_info "Docker bereits installiert: $(docker --version)"
     fi
-    $SUDO apt install -y $PKGS_BUILD
+    # Docker Compose: Paketname unterscheidet sich je nach Distro/Version
+    # (Ubuntu 24.04+: docker-compose-v2, Docker-Repo: docker-compose-plugin, älter: docker-compose)
+    if docker compose version &> /dev/null; then
+        log_info "Docker Compose Plugin bereits vorhanden"
+    else
+        $SUDO apt-get install -y docker-compose-v2 2>/dev/null \
+            || $SUDO apt-get install -y docker-compose-plugin 2>/dev/null \
+            || $SUDO apt-get install -y docker-compose 2>/dev/null \
+            || log_warn "Docker Compose konnte nicht installiert werden - bitte manuell prüfen"
+    fi
+    $SUDO apt-get install -y $PKGS_BUILD
 fi
 
 # Docker Daemon konfigurieren (falls nicht vorhanden)
