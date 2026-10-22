@@ -179,7 +179,7 @@ Exit: 0
 
 Summe: 12 VM-Steps ✅ + 1 Non-VM ⚠️. „13/13" nur, wenn Zeile 13 ✅ ist.
 
-7 Lücken: Lücke 1–7 aus dem Gap-Closure, davon 5 ✅, 3 ⚠️ dokumentiert.
+5 ✅, 2 ⚠️ dokumentiert
 
 ## Offene Punkte (ehrlich)
 

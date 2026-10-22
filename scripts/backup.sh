@@ -1,67 +1,32 @@
-#!/bin/bash
-# Backup Script für co-glitch Client Stack
-# Erstellt Backup von PostgreSQL (Supabase) und Docker Volumes
-
+#!/usr/bin/env bash
 set -euo pipefail
-
-BACKUP_DIR="${1:-./backups/$(date +%Y-%m-%d)}"
-TIMESTAMP=$(date +%Y%m%d-%H%M%S)
-
-echo "=== co-glitch Backup ==="
-echo "Backup-Verzeichnis: $BACKUP_DIR"
-echo "Timestamp: $TIMESTAMP"
-
+BACKUP_DIR="${BACKUP_DIR:-./backups/$(date +%F)}"
 mkdir -p "$BACKUP_DIR"
-
-# 1. PostgreSQL Dump (supabase-db)
-echo "1. PostgreSQL Dump erstellen..."
-if docker compose -f docker/client/docker-compose.yml ps supabase-db | grep -q "healthy"; then
-    docker compose -f docker/client/docker-compose.yml exec -T supabase-db \
-        pg_dump -U postgres -d postgres --no-owner --no-privileges \
-        > "$BACKUP_DIR/supabase_db_${TIMESTAMP}.sql"
-    echo "   ✓ supabase_db_${TIMESTAMP}.sql"
+echo "backup start $(date -u +%Y-%m-%dT%H:%M:%SZ)" > "$BACKUP_DIR/manifest.txt"
+DB=$(docker ps -q --filter name=supabase-db | head -1)
+if [ -z "$DB" ]; then
+  echo "pg_dump skipped: supabase-db not running" >> "$BACKUP_DIR/manifest.txt"
 else
-    echo "   ⚠ supabase-db nicht healthy, überspringe DB-Dump"
-fi
-
-# 2. Volumes als tar.gz
-echo "2. Docker Volumes sichern..."
-for volume in n8n_data forgejo_data postiz_data kuma_data beszel_data ollama_data; do
-    if docker volume inspect "co-glitch-client_${volume}" >/dev/null 2>&1; then
-        docker run --rm \
-            -v "co-glitch-client_${volume}:/data:ro" \
-            -v "$(pwd)/$BACKUP_DIR:/backup" \
-            alpine tar czf "/backup/${volume}_${TIMESTAMP}.tar.gz" -C /data .
-        echo "   ✓ ${volume}_${TIMESTAMP}.tar.gz"
+  PG_USER=$(docker exec "$DB" printenv POSTGRES_USER 2>/dev/null || echo postgres)
+  DBS=$(docker exec "$DB" psql -U "$PG_USER" -d postgres -tAc "SELECT datname FROM pg_database WHERE datistemplate=false" 2>/dev/null | grep -vx postgres | grep -vx template0 | grep -vx template1)
+  for D in $DBS; do
+    if docker exec "$DB" pg_dump -U "$PG_USER" "$D" > "$BACKUP_DIR/$D.sql" 2>"$BACKUP_DIR/$D.err"; then
+      gzip -f "$BACKUP_DIR/$D.sql"
+      echo "pg_dump ok ($D) $(stat -c%s "$BACKUP_DIR/$D.sql.gz") bytes" >> "$BACKUP_DIR/manifest.txt"
+      rm -f "$BACKUP_DIR/$D.err"
     else
-        echo "   ⚠ Volume co-glitch-client_${volume} nicht gefunden"
+      echo "pg_dump FAILED ($D): $(head -1 "$BACKUP_DIR/$D.err" 2>/dev/null)" >> "$BACKUP_DIR/manifest.txt"
+      rm -f "$BACKUP_DIR/$D.sql"
     fi
+  done
+fi
+for v in n8n_data forgejo_data postiz_data kuma_data; do
+  VNAME=$(docker volume ls -q | grep -m1 "$v$" || true)
+  if [ -n "$VNAME" ]; then
+    docker run --rm -v "$VNAME:/data:ro" -v "$(pwd)/$BACKUP_DIR:/backup" alpine tar czf "/backup/$v.tar.gz" -C /data . 2>/dev/null || true
+    echo "volume $v archived" >> "$BACKUP_DIR/manifest.txt"
+  fi
 done
-
-# 3. Supabase Kong Config sichern
-echo "3. Kong Config sichern..."
-cp docker/client/supabase-kong.yml "$BACKUP_DIR/supabase-kong.yml"
-
-# 4. .env sichern (ohne Secrets in Git, aber für Restore wichtig)
-echo "4. .env sichern..."
-cp .env "$BACKUP_DIR/env_backup_${TIMESTAMP}"
-
-# 5. Manifest erstellen
-echo "5. Manifest erstellen..."
-cat > "$BACKUP_DIR/MANIFEST_${TIMESTAMP}.txt" <<EOF
-co-glitch Backup Manifest
-=========================
-Datum: $(date)
-Host: $(hostname)
-Docker Compose Projekt: co-glitch-client
-
-Dateien:
-EOF
-ls -la "$BACKUP_DIR" >> "$BACKUP_DIR/MANIFEST_${TIMESTAMP}.txt"
-
-echo ""
-echo "=== Backup abgeschlossen ==="
-echo "Backup liegt in: $BACKUP_DIR"
-echo ""
-echo "Zum Restore:"
-echo "  make restore DATE=$(basename $BACKUP_DIR)"
+( cd "$BACKUP_DIR" && sha256sum * > manifest.sha256 2>/dev/null || true )
+echo "backup done $(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$BACKUP_DIR/manifest.txt"
+echo "BACKUP_DIR=$BACKUP_DIR"

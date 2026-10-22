@@ -36,4 +36,4 @@ config/caddy/Caddyfile.local
 config/systemd/*.local
 
 # Agent artifacts
-agent/
+agent/backups/
