@@ -53,6 +53,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - New: 04-VPS-OPTIONAL.md, 05-BACKUP-RESTORE.md, 06-UPDATES.md, 07-SECURITY.md, 08-AI-PROVIDER.md
 - Audit Report: docs/legacy/audit-2026-10-22.md
 
+## [1.0.1] - 2026-10-22
+
+### Fixed
+- Claim-Matrix in Verification-Report: Zählung korrigiert (17 Claims = 16 ✅ + 1 ❌ statt fälschlich "15+1=16")
+- Verification-Report: Ehrliche Angabe zu Fresh-Machine-Tests (nur Konfigurations-Validierung, keine echten VMs)
+- client-health-check.sh: UFW-inaktiv wird als FAIL behandelt (war bereits implementiert, wurde in v1.0.0 nicht auf echter VM geprüft)
+
+### Changed
+- v1.0.0 als „superseded" markiert (enthielt unbelegte Fresh-Machine-Behauptungen und Docker-Container-Tests statt echter VMs)
+
 ## [1.0.0] - 2026-10-22
 
 ### Added
@@ -77,5 +87,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Keepalive Service (Oracle Idle-Shutdown Prevention)
 
 ---
+
+> **⚠️ SUPERSEDED by v1.0.1** – v1.0.0 enthielt unbelegte Fresh-Machine-Behauptungen (Tests liefen in Docker-Containern, nicht auf echten VMs) und eine arithmetisch inkorrekte Claim-Matrix-Zählung (17/17 behauptet, aber 15+1=16 dokumentiert).
 
 **Hinweis**: Version 2.0 (Client-First Refactor) ist ein Major Breaking Change. Bestehende Installationen müssen migriert werden (siehe `docs/legacy/refactor-report.md`).
