@@ -1,6 +1,5 @@
 <img width="1024" height="572" alt="image" src="https://github.com/user-attachments/assets/0d3cbccb-17b7-4cf1-a478-59569b6e493f" />
 
-Here is the English translation, keeping the precise, engineering-focused, and highly reliable "Swiss Army Knife" tone. It captures the philosophy of the PDF concept perfectly.
 
 ---
 
