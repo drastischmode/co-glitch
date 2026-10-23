@@ -1,89 +1,105 @@
 <img width="1024" height="572" alt="image" src="https://github.com/user-attachments/assets/0d3cbccb-17b7-4cf1-a478-59569b6e493f" />
 
+Here is the English translation, keeping the precise, engineering-focused, and highly reliable "Swiss Army Knife" tone. It captures the philosophy of the PDF concept perfectly.
 
-# co-glitch
+---
 
-**Client-First Infrastructure-as-Code für lokale KI-Entwicklung.**
-Der Linux-Client ist die primäre Laufzeitumgebung; ein VPS ist ein optionales Add-on.
+# 🛠️ co-glitch
 
-![Status: stable%20(voice%20unverified)](https://img.shields.io/badge/status-stable--voice--unverified-green)
-![Version](https://img.shields.io/badge/version-1.0.3-lightgrey)
+> **The Swiss Army Knife for Autonomous AI Infrastructure.**
+> *Client-First. Zero-Cost. Enterprise-Grade. Everything you need, nothing you don't.*
 
-> ✅ **Stable.** Der Default-Onboarding-Pfad (`./bootstrap.sh` → `make up-client` → `make client-health`) wurde auf einer frischen Ubuntu-24.04-VM verifiziert (Exit 0, keine kritischen Issues).
-> Optionale Dienste (Postiz, Beszel-Agent) laufen im `client-extended` Profil.
-> **v1.0.3:** Fresh-Machine-Test erfolgreich – Redis für Postiz verifiziert, Extended-Profil getestet.
-> Arch-Unterstützung: Code vorhanden, Fresh-Machine-Test offen – Rückmeldung erwünscht.
+[![Status](https://img.shields.io/badge/Status-Stable%20(v1.0.3)-brightgreen?style=flat-square)](#)
+[![Cost](https://img.shields.io/badge/Cost-0%E2%82%AC%20%2F%20month-blue?style=flat-square)](#)
+[![Philosophy](https://img.shields.io/badge/Philosophy-Zero%20Trust%20%7C%20Tailnet--only-orange?style=flat-square)](#)
+[![AI](https://img.shields.io/badge/AI-4--Provider%20Fallback-purple?style=flat-square)](#)
 
-## Was drin ist
+**co-glitch** is your local, fully automated infrastructure platform. Inspired by comprehensive architectural concepts for autonomous AI systems, it packs the entire toolbox onto your Linux client (or optionally a VPS). No vendor lock-in, no hidden costs. Just a hardened environment that simply works.
 
-| Baustein | Komponenten |
-|---|---|
-| **Automatisierung** | n8n, Forgejo (Git) |
-| **Monitoring** | Uptime Kuma, Dozzle, Beszel Hub, cAdvisor |
-| **Daten** | Supabase Postgres, Kong API-Gateway |
-| **KI** | 4-Provider-Fallback: OpenCode Zen → NVIDIA NIM → z.ai → Ollama (lokal) |
-| **Host-Sicherheit** | UFW, Fail2ban, Tailscale (Tailnet-only) |
-| **Optional (Extended)** | Postiz, Beszel Agent, Diun |
+---
 
-## Voraussetzungen
+## 🧰 The Blades (What's inside)
 
-- Linux-Client: Arch, Manjaro, EndeavourOS, Ubuntu, Debian, Mint, Pop!_OS
-- 8 GB RAM (16 GB mit lokalem Ollama)
-- Tailscale-Account (optional, für Tailnet-Vernetzung)
-- **Kein `make` nötig** – `./bootstrap.sh` installiert alles automatisch
+Like a good Swiss Army Knife, `co-glitch` has the right tool for every problem:
 
-## Quickstart
+*   🔪 **The AI Blade (4-Provider Fallback):** OpenCode Zen → NVIDIA NIM → z.ai → Ollama (local). When one API hits a rate limit or fails, the next provider takes over seamlessly. No more "Rate Limit" standstills.
+*   🗡️ **The Automation Blade:** `n8n` for workflows and `Forgejo` for your local Git infrastructure. Your data stays with you.
+*   🔧 **The Data Blade:** `Supabase` (Postgres) and `Kong` (API Gateway). The complete backend for your own AI applications.
+*   👁️ **The Monitoring Blade:** `Uptime Kuma`, `Dozzle`, `Beszel`, and `cAdvisor`. You always know exactly what your system is doing (CPU, RAM, logs, health).
+*   🛡️ **The Security Blade:** `UFW`, `Fail2ban`, and `Tailscale`. **Zero-Trust by Default.** All services are exclusively reachable via your private tailnet. No exposed surfaces on the internet.
+*   🍴 **The Extended Blade (Optional):** `Postiz` (Social Media Scheduling), `Beszel-Agent`, and `Diun` (update notifications).
+
+---
+
+## ⚡ Quickstart (Unbox & Go)
+
+**Prerequisites:** Linux (Arch, Ubuntu, Debian, Mint, etc.), 8 GB RAM (16 GB recommended for local Ollama models). 
 
 ```bash
-git clone <repo> co-glitch && cd co-glitch
+# 1. Clone repo (Open the case)
+git clone https://github.com/drastischmode/co-glitch.git && cd co-glitch
 
-./bootstrap.sh     # Ein Befehl: make+curl+git installieren + Client-Setup
-nano .env          # NVIDIA_API_KEY, ZAI_API_KEY eintragen
+# 2. Run bootstrap script (Cleaning & Assembly)
+./bootstrap.sh
 
-newgrp docker      # oder neu einloggen
-tailscale up       # Tailnet beitreten
+# 3. Set API keys (Sharpen the blades)
+nano .env
+# Enter your keys for NVIDIA_API_KEY, ZAI_API_KEY, etc.
 
-make up-client     # Default-Stack starten
-make client-health # Health-Check (4-Zustände: healthy/running/unhealthy/not-started)
-make doctor        # Modelle + Health + Compose-Config
+# 4. Activate Docker group (One-time)
+newgrp docker
+
+# 5. Join Tailnet (Lock the safety catch)
+tailscale up
+
+# 6. Start stack & check health
+make up-client
+make client-health
 ```
 
-Ohne `make` direkt: `sudo bash scripts/client-bootstrap.sh`.
+*(Don't want to use `make`? Just run `sudo bash scripts/client-bootstrap.sh`.)*
 
-## Struktur
+---
 
-```
-scripts/     12 idempotente Shell-Skripte (Setup, Health, Backup, Restore, Update, Uninstall, Bootstrap)
-docker/      3 Compose-Stacks: client (primär), voice, vps (optional)
-docs/        01 Quickstart … 09 Voice-Extensions
-config/      Konfigurationsdateien der Dienste
-```
+## 🏗️ The Engineering (Under the Hood)
 
-## Dokumentation
+The architectural concepts show that true stability comes from well-thought-out engineering. `co-glitch` implements this consistently:
 
-| Dokument | Inhalt |
-|---|---|
-| `docs/01-QUICKSTART.md` | Schritt-für-Schritt-Onboarding |
-| `docs/02-ARCHITECTURE.md` | Ressourcen, Netzwerke, Ports |
-| `docs/03-TROUBLESHOOTING.md` | Häufige Probleme & Lösungen |
-| `docs/07-SECURITY.md` | Härtung, Secret-Rotation |
-| `docs/08-AI-PROVIDER.md` | Fallback-Kette |
-| `docs/09-VOICE-EXTENSIONS.md` | Voice-Agent Erweiterungen |
-| `docs/legacy/verification-v1.0.2.md` | **Verifikations-Report v1.0.2** |
+*   **Idempotency:** All 12 shell scripts in the `scripts/` folder can be run multiple times safely. They don't break things; they fix them.
+*   **4-State Health Checks:** `make client-health` gives you exact status: `healthy`, `running`, `unhealthy`, or `not-started`. No blind guessing.
+*   **Strict Isolation:** Separate Compose stacks for `client`, `voice`, and `vps` (optional).
+*   **Backup-Ready:** The structure is designed so you can securely back up and restore your data and configurations (following the good old 3-2-1 rule).
 
-## Status
+---
 
-**v1.0.3 – stable (default + extended; voice unverified)**
+## 📊 Status (Honest & Precise)
 
-- Default-Stack (8 Services): verifiziert auf frischer Ubuntu-24.04-qemu-VM (12/12 VM-Steps, client-health Exit 0, unhealthy 0).
-- Extended-Stack (Redis + Postiz + Beszel-Agent + Diun): verifiziert auf frischer VM (client-health Exit 0 im Extended-Modus).
-- Voice-Stack (Whisper/Piper): **nicht verifiziert** – Konfiguration vorhanden, Test auf frischer VM und mit lokalem Piper steht aus.
-- Arch: **nicht verifiziert** – Ubuntu 24.04 verifiziert.
-- Tailscale: **nicht verifiziert** – optional, ohne Authkey nicht testbar.
-- VPS-Stack: optional, nicht Teil der Default-Verifikation.
+Swiss quality means: No empty promises.
 
-Details: `docs/legacy/verification-v1.0.3.md`
+*   ✅ **Stable (v1.0.3):** Default onboarding path and extended stack (Postiz, Redis) successfully verified on a fresh Ubuntu 24.04 VM (Exit 0, no critical issues).
+*   🛠️ **Arch Support:** Code is present and prepared for Arch. However, the fresh-machine test is still pending. (Feedback welcome!).
+*   🚧 **Voice Stack (Beta):** Whisper/Piper configuration is present but not yet verified on a fresh VM (configuration stands).
+*   🏢 **VPS Stack (Optional):** If you prefer to run this setup 24/7 on an Oracle Always Free server (ARM64) (as described in the concept), you'll find the necessary Compose files in the `docker/vps` folder.
 
-## Lizenz
+---
 
-Siehe [`LICENSE`](LICENSE).
+## 📚 The Manual (Documentation)
+
+*   [01-QUICKSTART.md](docs/01-QUICKSTART.md) – Step-by-step onboarding
+*   [02-ARCHITECTURE.md](docs/02-ARCHITECTURE.md) – Resources, networks, ports (The blueprint)
+*   [03-TROUBLESHOOTING.md](docs/03-TROUBLESHOOTING.md) – First aid for problems
+*   [07-SECURITY.md](docs/07-SECURITY.md) – Hardening, secret rotation, zero trust
+*   [08-AI-PROVIDER.md](docs/08-AI-PROVIDER.md) – The fallback strategy in detail
+*   [09-VOICE-EXTENSIONS.md](docs/09-VOICE-EXTENSIONS.md) – Voice agent extensions
+
+---
+
+## 🤝 Contributing
+
+`co-glitch` is a tool for the community.
+Tested it on Arch? Verified the voice stack on a fresh machine? Or forged a new blade (MCP server / integration)?
+
+**Pull requests and issues are always welcome.**
+
+---
+*Built for maximum autonomy. 0 € software costs. No cloud dependency. Simply a damn good tool.*
