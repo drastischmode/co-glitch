@@ -20,13 +20,23 @@ else
     fi
   done
 fi
-for v in n8n_data forgejo_data postiz_data kuma_data; do
+for v in n8n_data forgejo_data postiz_data kuma_data beszel_data diun_data; do
   VNAME=$(docker volume ls -q | grep -m1 "$v$" || true)
   if [ -n "$VNAME" ]; then
     docker run --rm -v "$VNAME:/data:ro" -v "$(pwd)/$BACKUP_DIR:/backup" alpine tar czf "/backup/$v.tar.gz" -C /data . 2>/dev/null || true
     echo "volume $v archived" >> "$BACKUP_DIR/manifest.txt"
   fi
 done
+# supabase_db nur tar-archivieren, wenn die DB NICHT laeuft:
+# bei laufender DB ist das pg_dump oben die Authoritative-Quelle (konsistent),
+# das Volumen-Tar waere waaehrend des Schreibens inkonsistent.
+if ! docker ps -q --filter name=supabase-db | grep -q . ; then
+  VNAME=$(docker volume ls -q | grep -m1 'supabase_db$' || true)
+  if [ -n "$VNAME" ]; then
+    docker run --rm -v "$VNAME:/data:ro" -v "$(pwd)/$BACKUP_DIR:/backup" alpine tar czf "/backup/supabase_db.tar.gz" -C /data . 2>/dev/null || true
+    echo "volume supabase_db archived (db-down fallback)" >> "$BACKUP_DIR/manifest.txt"
+  fi
+fi
 ( cd "$BACKUP_DIR" && sha256sum * > manifest.sha256 2>/dev/null || true )
 echo "backup done $(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$BACKUP_DIR/manifest.txt"
 echo "BACKUP_DIR=$BACKUP_DIR"

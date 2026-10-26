@@ -440,23 +440,21 @@ services:
   diun:
     image: crazymax/diun:4.33.0
     profiles: ["client-extended"]
-    <<: *service-small
-    user: "0:0"
-    cap_drop: [ALL]
-    cap_add: [CHOWN, SETGID, SETUID]
+    restart: unless-stopped
+    labels:
+      - co-glitch.tier=client
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - diun_data:/data
     environment:
-      - TZ=${TZ}
-      - LOG_LEVEL=info
-      - LOG_JSON=false
-      - WATCH_WORKERS=5
-      - WATCH_SCHEDULE="0 */6 * * *"
-      - WATCH_BY_DEFAULT="true"
-      - WATCH_INCLUDE="co-glitch-*"
-    networks:
-      - net-frontend
+      - DIUN_PROVIDERS_DOCKER=true
+      - DIUN_PROVIDERS_DOCKER_WATCHBYDEFAULT=true
+      - DIUN_WATCH_SCHEDULE=0 */6 * * *
 
   # ==========================================
   # OLLAMA - Lokale KI (Optional, eigener Profile)
