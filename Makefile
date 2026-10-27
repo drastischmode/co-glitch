@@ -118,10 +118,11 @@ down-all: down-client down-client-extended down-voice down-vps
 
 # ---------- EDA / ELEKTROTECHNIK ----------
 install-eda:
-	@bash scripts/client-bootstrap.sh --with-eda
+	@echo "== EDA-Tools installieren (fokussiert) =="
+	@if command -v pacman >/dev/null 2>&1; then \n	  sudo pacman -S --needed --noconfirm kicad qelectrotech ngspice librecad freecad; \n	elif command -v apt >/dev/null 2>&1; then \n	  sudo apt-get update -qq && sudo apt-get install -y kicad qelectrotech ngspice librecad freecad; \n	else \n	  echo "Kein pacman/apt – bitte manuell installieren"; exit 2; \n	fi
+	@echo "== Verifikation =="
+	@for t in kicad qelectrotech ngspice librecad freecad; do \n	  if command -v $$t >/dev/null 2>&1; then echo "OK: $$t"; else echo "FEHLT: $$t"; fi; \n	done
 
-# Neues EDA-Projekt anlegen (KiCad oder QElectroTech)
-# Usage: make eda-project NAME=my-project TYPE=kicad|qelectrotech
 eda-project:
 	@if [ -z "$(NAME)" ]; then echo "Usage: make eda-project NAME=my-project TYPE=kicad|qelectrotech"; exit 1; fi
 	@bash scripts/eda-project.sh "$(NAME)" "$(TYPE)"
