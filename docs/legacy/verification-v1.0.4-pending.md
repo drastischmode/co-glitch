@@ -102,3 +102,12 @@ Basis: v1.0.3 (67751f8, unverändert)
 - Arch-VM: ⚠️ ausstehend (kein qemu-aarch64, nichts installiert)
 - Piper lokal: ✅ bereits getestet (v1.0.4-pending)
 - v1.0.3 unverändert: 67751f8
+
+## Nachtrag 2026-10-27T12:30:00Z – EDA-Tools vollständig installiert
+
+- Ausführung: `pkexec pacman -S --needed --noconfirm librecad freecad` (kein TTY nötig, Polkit-Agent läuft, laut conventions.md).
+- install-eda (Commit c03328f): per-Tool, skip-wenn-vorhanden, qelectrotech AUR-Fallback.
+- Verifikation: kicad, qelectrotech, ngspice, librecad, freecad alle als Binary vorhanden.
+- v1.0.4-Tag unverändert (8149649). Kein Retag, keine neuen Tags.
+
+### EDA-Status: ✅ vollständig (alle 5 Tools).
