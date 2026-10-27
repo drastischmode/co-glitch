@@ -174,7 +174,66 @@ Alle Services binden **nur an 127.0.0.1**. Zugriff über Tailscale IP oder local
 
 ---
 
-## 9. VPS (Optional - nur für öffentliche Erreichbarkeit)
+## 9. EDA / Elektrotechnik (Optional - Native Desktop Tools)
+
+KiCad, QElectroTech und ngspice sind **native Desktop-Anwendungen** (keine Container). Sie laufen direkt auf dem Client.
+
+```bash
+# Einmalig installieren (falls nicht via bootstrap.sh --with-eda geschehen):
+make install-eda
+# ODER manuell:
+./bootstrap.sh --with-eda
+```
+
+### KiCad-Projekt anlegen (Git-ready)
+```bash
+make eda-project NAME=mein-board TYPE=kicad
+# Erstellt: ~/projects/eda/mein-board/ mit .git, .gitignore, KiCad-Projekt
+# Öffnen: kicad ~/projects/eda/mein-board/mein-board.kicad_pro
+```
+
+### QElectroTech-Projekt anlegen (Git-ready)
+```bash
+make eda-project NAME=mein-schaltschrank TYPE=qelectrotech
+# Erstellt: ~/projects/eda/mein-schaltschrank/ mit .git, .gitignore, QET-Projekt
+# Öffnen: qelectrotech ~/projects/eda/mein-schaltschrank/mein-schaltschrank.qet
+```
+
+### Simulation mit ngspice
+```bash
+# Netlist erstellen (.cir) und simulieren:
+ngspice -b mein-circuit.cir -o output.txt
+# Interaktiv:
+ngspice mein-circuit.cir
+```
+
+### EDA-Projekte backupen
+```bash
+make eda-backup
+# Wird auch automatisch bei 'make backup' mitgesichert
+```
+
+**Projekt-Struktur:**
+```
+~/projects/eda/
+├── mein-board/           (KiCad)
+│   ├── mein-board.kicad_pro
+│   ├── mein-board.kicad_sch
+│   ├── mein-board.kicad_pcb
+│   ├── .git/
+│   └── .gitignore
+└── mein-schaltschrank/   (QElectroTech)
+    ├── mein-schaltschrank.qet
+    ├── elements/
+    ├── projects/
+    ├── titleblocks/
+    ├── .git/
+    └── .gitignore
+```
+
+---
+
+## 10. VPS (Optional - nur für öffentliche Erreichbarkeit)
 
 Falls **eingehende Webhooks**, **Tailnet Exit-Node** oder **dauerhaft erreichbare Dienste** gebraucht werden:
 
@@ -209,6 +268,12 @@ docker ps --filter "label=co-glitch.tier=client" --format 'table {{.Names}}\t{{.
 
 # Supabase Kong initialisieren (einmalig nach erstem Start)
 # Siehe docs/03-TROUBLESHOOTING.md
+
+# EDA / Elektrotechnik
+make install-eda                    # EDA Tools installieren
+make eda-project NAME=x TYPE=kicad  # Neues KiCad-Projekt
+make eda-project NAME=x TYPE=qelectrotech  # Neues QET-Projekt
+make eda-backup                     # EDA-Projekte backupen
 
 # Alles stoppen (Client + VPS)
 make down-all

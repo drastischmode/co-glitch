@@ -7,7 +7,8 @@ DB=$(docker ps -q --filter name=supabase-db | head -1)
 if [ -z "$DB" ]; then
   echo "pg_dump skipped: supabase-db not running" >> "$BACKUP_DIR/manifest.txt"
 else
-  PG_USER=$(docker exec "$DB" printenv POSTGRES_USER 2>/dev/null || echo postgres)
+  # Use 'postgres' user which has trust auth in supabase/postgres image
+  PG_USER="postgres"
   DBS=$(docker exec "$DB" psql -U "$PG_USER" -d postgres -tAc "SELECT datname FROM pg_database WHERE datistemplate=false" 2>/dev/null | grep -vx postgres | grep -vx template0 | grep -vx template1)
   for D in $DBS; do
     if docker exec "$DB" pg_dump -U "$PG_USER" "$D" > "$BACKUP_DIR/$D.sql" 2>"$BACKUP_DIR/$D.err"; then
@@ -37,6 +38,13 @@ if ! docker ps -q --filter name=supabase-db | grep -q . ; then
     echo "volume supabase_db archived (db-down fallback)" >> "$BACKUP_DIR/manifest.txt"
   fi
 fi
+
+# EDA-Projekte backup (Git-Bundles + Worktree)
+if [ -d "$HOME/projects/eda" ]; then
+    echo "=== EDA Projects Backup ===" >> "$BACKUP_DIR/manifest.txt"
+    bash "$(dirname "$0")/backup-eda.sh" >> "$BACKUP_DIR/manifest.txt" 2>&1 || echo "EDA backup failed" >> "$BACKUP_DIR/manifest.txt"
+fi
+
 ( cd "$BACKUP_DIR" && sha256sum * > manifest.sha256 2>/dev/null || true )
 echo "backup done $(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$BACKUP_DIR/manifest.txt"
 echo "BACKUP_DIR=$BACKUP_DIR"

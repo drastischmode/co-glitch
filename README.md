@@ -7,7 +7,7 @@
 > **The Swiss Army Knife for Autonomous AI Infrastructure & Development.**
 > *Client-First. Zero-Cost. Enterprise-Grade. Build locally, deploy globally.*
 
-[![Status](https://img.shields.io/badge/Status-Stable%20(v1.0.3)-brightgreen?style=flat-square)](#)
+[![Status](https://img.shields.io/badge/Status-Stable%20(v1.0.4)-brightgreen?style=flat-square)](#)
 [![Cost](https://img.shields.io/badge/Cost-0%E2%82%AC%20%2F%20month-blue?style=flat-square)](#)
 [![Philosophy](https://img.shields.io/badge/Philosophy-Zero%20Trust%20%7C%20Tailnet--only-orange?style=flat-square)](#)
 [![AI](https://img.shields.io/badge/AI-4--Provider%20Fallback-purple?style=flat-square)](#)
@@ -82,7 +82,7 @@ The architectural concepts show that true stability comes from well-thought-out 
 
 Swiss quality means: No empty promises.
 
-*   ✅ **Stable (v1.0.3):** Default onboarding path and extended stack (Postiz, Redis) successfully verified on a fresh Ubuntu 24.04 VM (Exit 0, no critical issues).
+*   ✅ **Stable (v1.0.4):** Default onboarding path and extended stack (Postiz, Redis) successfully verified on a fresh Ubuntu 24.04 VM (Exit 0, no critical issues).
 *   🛠️ **Arch Support:** Code is present and prepared for Arch. However, the fresh-machine test is still pending. (Feedback welcome!).
 *   🚧 **Voice Stack (Beta):** Whisper/Piper configuration is present but not yet verified on a fresh VM.
 *   🏢 **VPS Stack (Optional):** If you prefer to run this setup 24/7 on an Oracle Always Free server (ARM64) (as described in the concept), you'll find the necessary Compose files in the `docker/vps` folder.

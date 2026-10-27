@@ -1,3 +1,37 @@
+## [1.0.4] - 2026-10-27
+
+### Fixed
+- backup.sh: alle DBs + 4 Volumes + Manifest + SHA256, pg_dump forgejo User.
+- forgejo: Migration INSTALL_LOCK=true, git-User, 0 -> 121 Tabellen.
+- Whisper: Healthcheck /docs statt /health.
+- Piper: AUR-Binary + Modell, WAV 78.5 KB.
+- Diun: Restloop (3 Root-Causes) behoben.
+- client-bootstrap: Omarchy OS-Detection (ID_LIKE=arch).
+- client-health-check: UFW-Check via systemctl is-active (kein TTY), Forward Policy Warning-only.
+- git-sync: co-glitch Push 403 behoben (PAT Scope).
+
+### Added
+- Port-Plan verfestigt (8+4+1+3).
+- Backup 3-Ziel-Offsite, gpg.
+- EDA/Elektrotechnik: KiCad, QElectroTech, ngspice, LibreCAD, FreeCAD.
+  - scripts/eda-project.sh (kicad + qelectrotech), scripts/backup-eda.sh.
+  - Makefile: install-eda, eda-project, eda-backup. bootstrap.sh --with-eda.
+  - backup.sh: EDA-Projekte integriert (6 Projekte, Git-Bundles + Worktree-Tar).
+  - EDA-INTEGRATION-BERICHT.md.
+
+### Changed
+- Konzept Client-First (Phasen 1,2,5,7 + 3.5).
+
+### Verified
+- Alle 4 AI-Provider HTTP 200: OpenCode Zen, NVIDIA NIM, z.ai, Ollama lokal.
+- Client-Stack 12/12 Container healthy, 0 Restloops.
+- git-sync-005 gelöst, Push funktional.
+
+### Known Limitations
+- Voice-VM-Test: Phase C dokumentiert Status.
+- Arch-Test: ausstehend (kein qemu-aarch64 auf Host).
+- Infrastruktur, keine Code-Schuld. Badge bleibt stable (voice unverified).
+
 # Changelog
 
 All notable changes to this project will be documented in this file.
