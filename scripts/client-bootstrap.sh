@@ -15,9 +15,13 @@ log_warn() { echo -e "${YELLOW}[WARN]${NC} $*"; }
 log_error() { echo -e "${RED}[ERROR]${NC} $*"; }
 
 WITH_OLLAMA=false
-if [[ "${1:-}" == "--with-ollama" ]]; then
-    WITH_OLLAMA=true
-fi
+WITH_EDA=false
+for arg in "$@"; do
+    case $arg in
+        --with-ollama) WITH_OLLAMA=true ;;
+        --with-eda) WITH_EDA=true ;;
+    esac
+done
 
 echo "=== Client Bootstrap (Arch/Ubuntu) ==="
 
@@ -29,11 +33,12 @@ fi
 . /etc/os-release
 
 case "$ID" in
-    arch|manjaro|endeavouros)
+    arch|manjaro|endeavouros|omarchy)
         PM="pacman"
         PKGS_BASE="git curl wget openssl jq make tmux rclone ufw fail2ban openssh"
         PKGS_DOCKER="docker docker-compose"
         PKGS_BUILD="base-devel"
+        PKGS_EDA="kicad qelectrotech ngspice librecad freecad"
         log_info "Arch-basiert erkannt ($ID)"
         ;;
     ubuntu|debian|linuxmint|pop)
@@ -41,6 +46,7 @@ case "$ID" in
         PKGS_BASE="git curl wget openssl jq make tmux rclone ufw fail2ban openssh-client"
         PKGS_DOCKER="docker.io"
         PKGS_BUILD="build-essential"
+        PKGS_EDA="kicad qelectrotech ngspice librecad freecad"
         log_info "Debian-basiert erkannt ($ID)"
         ;;
     *)
@@ -179,6 +185,25 @@ if [ "$WITH_OLLAMA" = true ]; then
     ollama pull qwen3.5:8b
 fi
 
+# EDA Tools optional installieren (KiCad, QElectroTech, ngspice, LibreCAD, FreeCAD)
+if [ "$WITH_EDA" = true ]; then
+    log_info "Installiere EDA Tools (--with-eda)..."
+    if [ "$PM" = "pacman" ]; then
+        $SUDO pacman -Syu --noconfirm --needed $PKGS_EDA
+    elif [ "$PM" = "apt" ]; then
+        $SUDO apt-get update
+        $SUDO apt-get install -y $PKGS_EDA
+    fi
+    # Verifikation
+    for tool in kicad qelectrotech ngspice; do
+        if command -v $tool &> /dev/null; then
+            log_info "$tool: $(command -v $tool) ✓"
+        else
+            log_warn "$tool: NICHT gefunden"
+        fi
+    done
+fi
+
 # Docker Compose Verifikation
 if docker compose version &> /dev/null; then
     log_info "Docker Compose (Plugin): $(docker compose version --short)"
@@ -208,3 +233,4 @@ echo "  3. make up-client"
 echo "  4. make client-health"
 echo ""
 echo "Optional: make install-ollama  (für lokalen KI-Fallback)"
+echo "Optional: ./bootstrap.sh --with-eda  (für KiCad, QElectroTech, ngspice, LibreCAD, FreeCAD)"

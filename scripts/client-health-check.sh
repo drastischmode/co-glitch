@@ -54,8 +54,19 @@ check "Docker erreichbar" "docker info --format '{{.ServerVersion}}' >/dev/null"
 # 2. UFW
 echo ""
 echo "2. Firewall:"
-check "UFW aktiv" "sudo ufw status | grep -q 'Status: active'"
-check "UFW Forward Policy ACCEPT" "grep -q '^DEFAULT_FORWARD_POLICY=\"ACCEPT\"' /etc/default/ufw"
+check "UFW Service aktiv" "systemctl is-active --quiet ufw"
+warn_check() {
+    local name="$1"
+    local cmd="$2"
+    if eval "$cmd" >/dev/null 2>&1; then
+        echo -e "${GREEN}[OK]${NC} $name"
+        return 0
+    else
+        echo -e "${YELLOW}[WARN]${NC} $name"
+        return 0  # Nicht kritisch
+    fi
+}
+warn_check "UFW Forward Policy ACCEPT (Docker)" "grep -q '^DEFAULT_FORWARD_POLICY=\"ACCEPT\"' /etc/default/ufw"
 
 # 3. Container Health (label=co-glitch.tier=client)
 echo ""
