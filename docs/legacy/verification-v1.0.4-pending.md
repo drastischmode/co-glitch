@@ -90,3 +90,15 @@ Basis: v1.0.3 (67751f8, unverändert)
 - Kein v1.0.4-Tag. v1.0.3 bleibt 67751f8.
 - Badge bleibt stable (voice unverified) bis VM-Test vorliegt.
 - Nächster Schritt: multipass/lima installieren oder qemu-x86 für Voice-Integrationstest nutzen.
+
+## Nachtrag 2026-10-27T09:15:18Z – v1.0.4 Release
+
+- v1.0.4 getaggt: 8149649 (Tag-Objekt d4b7f0c)
+- EDA-Integration committet (KiCad, QElectroTech, ngspice, LibreCAD, FreeCAD)
+- Omarchy OS-Detection + UFW-Healthcheck (systemctl, kein TTY) committet
+- Alle 4 AI-Provider HTTP 200 (Zen, NVIDIA, z.ai, Ollama)
+- git-sync-005 gelöst (PAT Scope erweitert)
+- Voice-VM (Whisper): ⚠️ nicht verifiziert – Grund: skip_no_multipass
+- Arch-VM: ⚠️ ausstehend (kein qemu-aarch64, nichts installiert)
+- Piper lokal: ✅ bereits getestet (v1.0.4-pending)
+- v1.0.3 unverändert: 67751f8
