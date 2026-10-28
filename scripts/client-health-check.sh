@@ -154,11 +154,20 @@ http_check() {
     check "$name" "curl -sf $url"
 }
 http_check "n8n (5678)" "n8n" "http://127.0.0.1:5678/healthz"
-http_check "Forgejo (3000)" "forgejo" "http://127.0.0.1:3000/api/healthz"
+http_check "Forgejo (3002)" "forgejo" "http://127.0.0.1:3002/api/healthz"
 http_check "Postiz (4007)" "postiz" "http://127.0.0.1:4007"
-# Kong has Docker healthcheck (kong health), skip external HTTP check
+# Supabase-API: im Client-Stack nicht enthalten (nur supabase-db). Der Kong-
+# Gateway laeuft im Profil `client-supabase-api` und hat ohne echte Backends
+# und ohne key-auth-Consumer nur 401 geliefert -> nicht im Default-Profil.
 if docker ps --filter "label=com.docker.compose.service=supabase-kong" -q 2>/dev/null | grep -q .; then
-    echo -e "${BLUE}[SKIP]${NC} Supabase Kong (8000) (Docker healthcheck sufficient)"
+    code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 5 http://127.0.0.1:8000/auth/v1/health 2>/dev/null || echo 000)
+    if [ "$code" = "401" ]; then
+        echo -e "${YELLOW}[WARN]${NC} Supabase Kong (8000) laeuft, antwortet aber 401 (kein Consumer/Backend) - Profil client-supabase-api pruefen"
+    else
+        echo -e "${GREEN}[OK]${NC} Supabase Kong (8000) HTTP $code"
+    fi
+else
+    echo -e "${BLUE}[SKIP]${NC} Supabase API (nicht im Client-Profil; laeuft auf dem VPS)"
 fi
 http_check "Uptime Kuma (3001)" "uptime-kuma" "http://127.0.0.1:3001/api/status"
 http_check "Dozzle (8082)" "dozzle" "http://127.0.0.1:8082/healthz"

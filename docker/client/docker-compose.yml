@@ -129,7 +129,8 @@ services:
   # ==========================================
   supabase-db:
     image: supabase/postgres:15.8.1.060
-    profiles: ["client"]
+    # auch im API-Profil, damit `--profile client-supabase-api` allein startet
+    profiles: ["client", "client-supabase-api"]
     <<: *service-large
     cap_drop: [ALL]
     cap_add: [CHOWN, SETGID, SETUID, DAC_OVERRIDE, FOWNER]
@@ -150,11 +151,19 @@ services:
       - net-backend
 
   # ==========================================
-  # SUPABASE KONG - API Gateway
+  # SUPABASE KONG - API Gateway (NICHT im Default-Profil)
   # ==========================================
+  # Messstand 2026-10-28: Der Client-Stack enthaelt nur `supabase-db`; die
+  # Upstreams dieses Gateways (auth :9999, rest :3000, storage :5000,
+  # realtime, functions) existieren hier nicht. Zusaetzlich haengt ein
+  # globales key-auth-Plugin ohne Consumer an allen Routen -> jeder Request
+  # antwortet 401. Ein 401-Gateway im Default-Profil ist eine Fehlerquelle
+  # bei Demos, deshalb eigenes Profil. Die Supabase-API laeuft auf dem VPS.
+  # Nur starten, wenn hier echte Supabase-API-Services laufen:
+  #   docker compose --profile client-supabase-api up -d
   supabase-kong:
     image: kong:2.8.1
-    profiles: ["client"]
+    profiles: ["client-supabase-api"]
     <<: *service-medium
     user: "kong:kong"
     cap_drop: [ALL]

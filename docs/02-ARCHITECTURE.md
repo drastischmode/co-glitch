@@ -2,14 +2,36 @@
 
 | Profil | Dienste | Anzahl |
 | :--- | :--- | ---: |
-| **Default (`client`)** | supabase-db, supabase-kong, n8n, forgejo, uptime-kuma, cadvisor, dozzle, beszel | **8** |
+| **Default (`client`)** | supabase-db, n8n, forgejo, uptime-kuma, cadvisor, dozzle, beszel | **7** |
 | **Extended (`client-extended`)** | redis, postiz, beszel-agent, diun | **4** |
+| **Supabase-API (`client-supabase-api`)** | supabase-db, supabase-kong | **2** |
 | **Voice (`voice`)** | whisper | **1** |
 | **VPS (`vps`)** | caddy, tailscale, keepalive | **3** |
 
 **Wichtig:** Redis ist ausschließlich im `client-extended` Profil definiert. Postiz hängt mit `depends_on: service_healthy` von Redis ab. Ohne `make up-client-extended` läuft Postiz nicht.
 
 > ⚠️ **BETA STATUS**: Der Client-Stack wurde nicht auf einer frischen VM verifiziert (siehe `docs/legacy/verification-v1.0.2.md`).
+
+> 📏 **Messstand 2026-10-28 (live, nicht aus dieser Doku abgeleitet):** Die Komponenten-Matrix
+> unten beschreibt das **Zielbild**, nicht den heutigen Stand. Gemessen:
+> - **Supabase auf dem Client:** nur `supabase-db` (Postgres, wird von Forgejo und Postiz genutzt).
+>   `supabase-auth`, `-rest`, `-storage`, `-realtime`, `-functions`, `-meta`, `-imgproxy` sind im
+>   Client-Compose **nicht definiert**. Der `supabase-kong`-Gateway hatte keine Upstreams
+>   (`host.docker.internal:9999/3000/5000` unbelegt) und ein globales `key-auth` ohne Consumer →
+>   **jeder** Request `401`. Er ist deshalb aus dem Default-Profil in `client-supabase-api` verschoben.
+> - **Supabase auf dem VPS:** vollständig und gesund — `auth/v1/health` 200, `rest/v1` 200 mit
+>   Service-Role, `storage/v1/status` 200, Realtime-WebSocket `101`, Edge Functions `hello`/`main`
+>   vorhanden. Die DB ist leer (`public` = 0 Tabellen, 0 Storage-Buckets).
+> - **Client-Dienste (live):** n8n 200 (5 Workflows), Forgejo 200 (9.0.3, **0 User**),
+>   Postiz 307 (**0 User**), Uptime Kuma 302 (**0 Monitore**), Dozzle/Beszel/cAdvisor 200,
+>   Ollama 200 (Host-Dienst).
+> - **VPS-Dienste (live):** 31 Container, Forgejo 200 (Mirror aktiv), n8n 200 (12 Workflows),
+>   Postiz 200/307, Temporal-UI 200, Woodpecker 204 (Agent `easy-ai`), Kuma/Dozzle/Beszel/cAdvisor/
+>   Spotlight 200.
+>
+> Wer „Client-First inkl. Supabase-API" präsentieren will, muss die fehlenden Supabase-Services im
+> Client-Compose ergänzen. Bis dahin gilt: **DB + Tooling lokal, Supabase-API auf dem VPS.**
+
 
 ## Kernprinzip: **Client-First**
 
@@ -35,7 +57,7 @@
 | **Social Media** | | |
 | Postiz | ✅ | ❌ |
 | **Backend / DB** | | |
-| Supabase (Postgres, Kong, Auth, REST, Realtime, Storage, Functions) | ✅ | ❌ |
+| Supabase (Postgres, Kong, Auth, REST, Realtime, Storage, Functions) | 🟡 nur Postgres (s. Messstand) | ✅ vollständig |
 | **Monitoring** | | |
 | Uptime Kuma | ✅ | ❌ |
 | Beszel Hub + Agent | ✅ | ❌ |
