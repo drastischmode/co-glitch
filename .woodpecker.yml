@@ -48,6 +48,6 @@ steps:
       - 'jq -e . config/opencode/fallback.json > /dev/null && echo "fallback.json ok"'
 
   - name: tests
-    image: bash:5
+    image: debian:bookworm-slim
     commands:
       - 'bash tests/run.sh'
