@@ -52,3 +52,6 @@ woodpecker-server-1
 - [ ] Dienste-Inventar vervollstaendigen
 - [ ] Alte Doku aktualisieren oder archivieren
 - [ ] Klaeren, ob "Client-Stack" Zielarchitektur oder Ist-Zustand meint
+
+## Decisions
+- 2026-10-28: CI-Mirror-Sync wird nur noch bei SHA-Ungleichheit getriggert (GitHub-HEAD vs. Forgejo-HEAD, fail-open, --force zum Umgehen) — das Skript hat kein git push --mirror, ein HEAD_BEFORE-Patch waere wirkungslos. Ausserdem: Doku-Divergenz ist dokumentiert (31 Container real vs. Claim '12 Dienste'), PAT-Rotation steht in docs/07-SECURITY.md.
