@@ -1,0 +1,52 @@
+# Woodpecker CI — co-glitch
+#
+# Läuft ausschließlich auf dem Laptop-Agent (label: location=laptop).
+# Der VPS-Agent hat dieses Label nicht und kann die Pipeline nicht annehmen:
+# Build-Images, Workspace und Layer-Cache bleiben auf EASY-AI.
+# Auf dem VPS entstehen nur Pipeline-Metadaten (SQLite) und Logdateien.
+
+labels:
+  location: laptop
+
+when:
+  - event: [push, pull_request, tag, manual]
+
+clone:
+  git:
+    image: woodpeckerci/plugin-git
+
+steps:
+  - name: bash-syntax
+    image: bash:5
+    commands:
+      - 'for f in scripts/*.sh tests/*.sh bootstrap.sh; do bash -n "$f"; done'
+      - 'echo "bash -n ok"'
+
+  - name: shellcheck
+    image: koalaman/shellcheck-alpine:stable
+    commands:
+      - 'shellcheck --severity=warning --exclude=SC2034 scripts/*.sh tests/*.sh bootstrap.sh'
+
+  - name: yamllint
+    image: python:3.12-alpine
+    commands:
+      - 'pip install --no-cache-dir -q yamllint'
+      - 'yamllint -c .yamllint.yml docker/ config/ .woodpecker.yml'
+
+  - name: compose-config
+    image: docker:cli
+    commands:
+      - 'docker compose -f docker/client/docker-compose.yml config --quiet && echo "client ok"'
+      - 'docker compose -f docker/voice/docker-compose.yml config --quiet && echo "voice ok"'
+      - 'docker compose -f docker/vps/docker-compose.yml config --quiet && echo "vps ok"'
+
+  - name: json-validate
+    image: ghcr.io/jqlang/jq:latest
+    commands:
+      - 'jq -e . config/opencode/opencode.json > /dev/null && echo "opencode.json ok"'
+      - 'jq -e . config/opencode/fallback.json > /dev/null && echo "fallback.json ok"'
+
+  - name: tests
+    image: bash:5
+    commands:
+      - 'bash tests/run.sh'
