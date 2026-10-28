@@ -97,13 +97,32 @@ ssh oracle-vps 'sha256sum ~/.config/sops/secrets.enc.yaml'
 
 `~/bin/env-diff-report.sh` (Cron: So 05:00, Log `~/logs/env-diff.log`) vergleicht
 wöchentlich nur die **Variablennamen** der `env.sh` beider Hosts, nie die Werte.
-Bewusst host-lokale Variablen (`BOT_WORKDIR`, `BOT_LAPTOP_WORKDIR`,
-`WOODPECKER_TOKEN`) sind im Skript allowlistet.
+Bewusst host-lokale Variablen (`BOT_WORKDIR`, `BOT_LAPTOP_WORKDIR`) sind im
+Skript allowlistet — Werte sind host-spezifische Pfade, keine Drift.
 
-Versand läuft über Resend. **Einschränkung:** `easydoesit.online` ist nicht an
-Resend verifiziert (Domain ohne NS/Delegation), deshalb sendet das Skript von
-`onboarding@resend.dev`. Sobald eine Domain verifiziert ist:
-`RESEND_FROM="AI-SRE <noreply@…>"` in der Umgebung setzen.
+Versand läuft über Resend von `onboarding@resend.dev` (Domain `easydoesit.online`
+ist bei Resend nicht verifiziert und nicht delegiert). Empfänger ist
+`SENDER_EMAIL_ADDRESS`, also `easydoesit.online.welt@gmail.com`. Eine eigene
+Absenderdomain ist bewusst nicht angestrebt; `RESEND_FROM` kann sie bei Bedarf
+überschreiben.
+
+## Secrets, die bewusst NICHT in env.sh stehen
+
+Credential-Werte gehören nicht in `env.sh` (wird von vielen Tools gesourct, landet
+damit in jeder Prozess-Umgebung). Aktuell betrifft das:
+
+| Key | Zugriff |
+|---|---|
+| `WOODPECKER_TOKEN` | `sops -d --extract '["WOODPECKER_TOKEN"]' ~/.config/sops/secrets.enc.yaml` |
+| `SENDER_EMAIL_ADDRESS` | dito (kein Geheimnis, aber single source of truth) |
+
+Beispiel für einen API-Check ohne Klartext-Datei:
+
+```bash
+T=$(sops -d --extract '["WOODPECKER_TOKEN"]' ~/.config/sops/secrets.enc.yaml)
+curl -s -o /dev/null -w '%{http_code}\n' -H "Authorization: Bearer $T" http://100.90.252.42:8000/api/user
+unset T
+```
 
 ## Rotation
 
