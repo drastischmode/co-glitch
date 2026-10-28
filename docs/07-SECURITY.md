@@ -233,3 +233,132 @@ Jeder Audit-Durchlauf erzeugt einen Report unter `docs/legacy/audit-YYYY-MM-DD.m
 - Optimierungen
 - Doku-Sync Status
 - Test-Matrix Ergebnisse
+
+## GitHub-PAT-Rotation
+
+### Geltungsbereich
+
+Dieses Setup nutzt drei GitHub-Identitäten. Jede hat eine eigene Auth-Quelle
+und einen eigenen Rotationsweg. Eine Rotation, die nur einen Account abdeckt,
+ist unvollständig.
+
+| Account | Auth-Quelle | Speicherort | Scope | Verantwortlich |
+|---|---|---|---|---|
+| `easydoesit36` | `gh auth` (Keyring) | `~/.config/gh/hosts.yml` | `repo`, `read:org` | Rotation via `gh auth refresh` |
+| `drastischmode` | Fine-grained PAT | `sops/secrets.enc.yaml` → `GITHUB_TOKEN_DRASTISCHMODE` | `contents:write`, `metadata:read` (nur co-glitch) | Rotation via sops + Helper-Test |
+| `SDG-Den` | extern (nicht in unserem Besitz) | — | — | Nicht rotierbar von uns |
+
+**Hinweis:** Der frühere generische Key `GITHUB_TOKEN` in sops ist tot (siehe
+Ausbau in system-diff P1.2). Es gibt nur noch `GITHUB_TOKEN_DRASTISCHMODE` und
+`gh auth`.
+
+### Wann rotiert wird
+
+| Trigger | Aktion | Frist |
+|---|---|---|
+| **Zeitbasiert** | Alle 90 Tage (Fine-grained PAT: Expiration setzen) | 90 Tage |
+| **Leak-Verdacht** | Sofort: PAT revoken, neuen ausstellen, sops aktualisieren | < 1 h |
+| **CI/CD-Kompromittierung** | Alle PATs, die in CI-Umgebungen sichtbar waren, rotieren | < 24 h |
+| **Account-Wechsel** | PAT des ausscheidenden Accounts revoken | sofort |
+| **sops-Datei in Git committed** | Sofort rotieren (auch wenn nur verschlüsselt) | < 1 h |
+
+### Rotations-Ablauf pro Account
+
+#### A — `drastischmode` (Fine-grained PAT, sops)
+
+**Voraussetzung:** `sops` + `age` funktionieren, `GITHUB_TOKEN_DRASTISCHMODE` existiert.
+
+```bash
+# 1. Neuen PAT ausstellen
+#    GitHub -> Settings -> Developer settings -> Fine-grained tokens -> Generate new token
+#    Repository access: Only select repositories -> co-glitch
+#    Permissions: Contents = Read and write, Metadata = Read-only
+#    Expiration: 90 Tage
+
+# 2. In sops schreiben (NICHT in Chat, NICHT in History)
+export SOPS_AGE_KEY_FILE=~/.config/sops/age/keys.txt
+sops edit ~/.config/sops/secrets.enc.yaml
+# Im Editor: GITHUB_TOKEN_DRASTISCHMODE: "github_pat_NEU..."
+
+# 3. Verifikation: Helper liefert Token (ohne Wertausgabe)
+printf 'protocol=https\nhost=github.com\n\n' | ~/bin/git-credential-drastischmode.sh 2>&1 \
+  | sed 's/^password=.*/password=<REDACTED>/'
+# Erwartung: username=drastischmode, password=<REDACTED>, Exit 0
+
+# 4. Verifikation: API-Call mit neuem Token
+export SOPS_AGE_KEY_FILE=~/.config/sops/age/keys.txt
+TOKEN=$(sops -d --extract '["GITHUB_TOKEN_DRASTISCHMODE"]' ~/.config/sops/secrets.enc.yaml)
+curl -s -o /dev/null -w "%{http_code}\n" -H "Authorization: Bearer $TOKEN" https://api.github.com/user
+unset TOKEN
+# Erwartung: 200
+
+# 5. Verifikation: co-glitch push-Test (dry-run)
+git -C ~/co-glitch push --dry-run origin HEAD 2>&1 | tail -3
+# Erwartung: "Everything up-to-date" bzw. Exit 0
+
+# 6. ERST JETZT: alten PAT revoken
+#    GitHub -> Settings -> Developer settings -> Fine-grained tokens -> alten Token -> Delete
+```
+
+**Rollback:** Wenn Schritt 3-5 fehlschlaegt, alten PAT **nicht** revoken.
+sops-Backup zurueckspielen (`cp -a secrets.enc.yaml.bak.* secrets.enc.yaml`),
+Ursache klaeren.
+
+#### B — `easydoesit36` (`gh auth`, Keyring)
+
+```bash
+# 1. Status pruefen
+gh auth status
+# Erwartung: "Logged in to github.com account easydoesit36"
+
+# 2. Neuen Token via gh auth refresh (interaktiv, Device Flow)
+gh auth refresh -h github.com -s repo,read:org
+
+# 3. Verifikation
+gh api user --jq .login            # Erwartung: easydoesit36
+gh api repos/easydoesit36/<repo> --jq .permissions.push   # Erwartung: true
+
+# 4. Git-Operation testen
+git -C ~/projects/pitch ls-remote origin HEAD >/dev/null 2>&1 && echo "Auth funktioniert"
+```
+
+**Besonderheit:** `gh auth refresh` ersetzt den Token im Keyring automatisch.
+Kein manuelles Revoken noetig. **Rollback:** `gh auth login` erneut.
+
+#### C — `SDG-Den` (extern)
+
+**Nicht in unserem Besitz.** Kein PAT in sops, kein `gh`-Login. Rotation ist
+Sache von SDG-Den. Hier als "extern, nicht rotierbar" gefuehrt. Bei Bedarf:
+Collaborator-Zugriff anfragen, dann unter A oder B einordnen.
+
+### Verifikations-Matrix (nach jeder Rotation)
+
+| Account | Endpoint | Erwartung | Befehl |
+|---|---|---|---|
+| drastischmode | `GET /user` | 200 | `curl -H "Authorization: Bearer $TOKEN" https://api.github.com/user` |
+| drastischmode | `git push --dry-run` (co-glitch) | Exit 0 | `git -C ~/co-glitch push --dry-run origin HEAD` |
+| easydoesit36 | `gh api user` | Exit 0, `easydoesit36` | `gh api user --jq .login` |
+| easydoesit36 | `git ls-remote` (pitch) | Exit 0 | `git -C ~/projects/pitch ls-remote origin HEAD` |
+
+**Kein "OK" ohne Exit-Code.** Wenn ein Check rot ist, Rotation abbrechen, Rollback.
+
+### Aufbewahrung / Loeschung
+
+| Artefakt | Aufbewahrung | Loeschung |
+|---|---|---|
+| Alter PAT (drastischmode) | bis neuer verifiziert ist | nach Schritt 5: GitHub -> Delete |
+| sops-Backup (`secrets.enc.yaml.bak.*`) | 7 Tage | `shred -u` |
+| `gh`-Keyring-Eintrag | wird durch `gh auth refresh` ersetzt | automatisch |
+| `/tmp`-Token-Dateien | sofort | `shred -u` |
+
+### Doku-Pflege
+
+- **Ort:** `docs/07-SECURITY.md` (dieser Abschnitt)
+- **Aktualisierung:** bei jeder Rotation das Datum in der Tabelle eintragen
+- **Review:** vierteljaehrlich pruefen, ob Accounts/Scopes noch stimmen
+
+| Account | Letzte Rotation | Naechste Rotation |
+|---|---|---|
+| `drastischmode` | nicht dokumentiert | 90 Tage nach naechster Rotation |
+| `easydoesit36` | nicht dokumentiert | 90 Tage nach naechster Rotation |
+| `SDG-Den` | — (extern) | — |
