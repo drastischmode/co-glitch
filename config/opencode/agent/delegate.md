@@ -1,58 +1,133 @@
 ---
-description: Delegations-Agent für Analyse, Edit, Build – volle Tools, destruktive Patterns blockiert.
+description: Voice-Delegation — reguläre Session mit vollen Tools, aber harten Sperren für destruktive Befehle (rm, force-push, deploy, prune, DROP …).
 mode: primary
 model: opencode/deepseek-v4.1-flash-free
-permission:
-  # OpenCode wertet last-match-wins aus: allow MUSS vor deny stehen.
-  edit: allow
-  read: allow
-  glob: allow
-  grep: allow
-  list: allow
-  write: allow
-  execute: allow
-  task: allow
-  webfetch: allow
-  websearch: allow
-  skill: allow
-  shell:
-    "*": allow
-    "rm -rf /*": deny
-    "rm -rf ~": deny
-    "rm -rf /home/*": deny
-    "rm -rf *": deny
-    "git push --force*": deny
-    "git push -f*": deny
-    "git reset --hard*": deny
-    "git clean -fd*": deny
-    "git tag -d*": deny
-    "deploy*": deny
-    "docker *down*": deny
-    "docker *rm*": deny
-    "docker *rmi*": deny
-    "docker system prune*": deny
-    "systemctl stop*": deny
-    "systemctl disable*": deny
-    "systemctl mask*": deny
-    "DROP *": deny
-    "TRUNCATE *": deny
-    "mkfs*": deny
-    "dd if=* of=/dev/*": deny
-    "shutdown*": deny
-    "reboot*": deny
+# V2: Liste aus {action, resource, effect}; letzte passende Regel gewinnt.
+# Reihenfolge ist sicherheitsrelevant: breite allow-Regeln zuerst, denies danach.
+permissions:
+  - action: "*"
+    resource: "*"
+    effect: allow
+  - action: "shell"
+    resource: "*"
+    effect: allow
+  - action: "shell"
+    resource: "rm *"
+    effect: deny
+  - action: "shell"
+    resource: "* rm *"
+    effect: deny
+  - action: "shell"
+    resource: "*; rm *"
+    effect: deny
+  - action: "shell"
+    resource: "*&& rm *"
+    effect: deny
+  - action: "shell"
+    resource: "*| rm *"
+    effect: deny
+  - action: "shell"
+    resource: "*rm -rf*"
+    effect: deny
+  - action: "shell"
+    resource: "*rm -f*"
+    effect: deny
+  - action: "shell"
+    resource: "rmdir *"
+    effect: deny
+  - action: "shell"
+    resource: "*rmdir*"
+    effect: deny
+  - action: "shell"
+    resource: "*unlink*"
+    effect: deny
+  - action: "shell"
+    resource: "*shutil*"
+    effect: deny
+  - action: "shell"
+    resource: "*os.remove*"
+    effect: deny
+  - action: "shell"
+    resource: "*os.rmdir*"
+    effect: deny
+  - action: "shell"
+    resource: "*find* -delete*"
+    effect: deny
+  - action: "shell"
+    resource: "*truncate*"
+    effect: deny
+  - action: "shell"
+    resource: "dd *"
+    effect: deny
+  - action: "shell"
+    resource: "mkfs*"
+    effect: deny
+  - action: "shell"
+    resource: "shred *"
+    effect: deny
+  - action: "shell"
+    resource: "*git push --force*"
+    effect: deny
+  - action: "shell"
+    resource: "*git reset --hard*"
+    effect: deny
+  - action: "shell"
+    resource: "*git clean*"
+    effect: deny
+  - action: "shell"
+    resource: "*deploy.sh*"
+    effect: deny
+  - action: "shell"
+    resource: "*postfile.sh*"
+    effect: deny
+  - action: "shell"
+    resource: "*npm run deploy*"
+    effect: deny
+  - action: "shell"
+    resource: "*vercel --prod*"
+    effect: deny
+  - action: "shell"
+    resource: "*docker system prune*"
+    effect: deny
+  - action: "shell"
+    resource: "*docker rm *"
+    effect: deny
+  - action: "shell"
+    resource: "*docker rmi *"
+    effect: deny
+  - action: "shell"
+    resource: "*docker volume rm*"
+    effect: deny
+  - action: "shell"
+    resource: "*docker compose down*"
+    effect: deny
+  - action: "shell"
+    resource: "*systemctl stop*"
+    effect: deny
+  - action: "shell"
+    resource: "*systemctl disable*"
+    effect: deny
+  - action: "shell"
+    resource: "*systemctl mask*"
+    effect: deny
+  - action: "shell"
+    resource: "*DROP TABLE*"
+    effect: deny
+  - action: "shell"
+    resource: "*DROP DATABASE*"
+    effect: deny
+  - action: "shell"
+    resource: "*TRUNCATE*"
+    effect: deny
+  - action: "execute"
+    resource: "*"
+    effect: deny
+  - action: "subagent"
+    resource: "*"
+    effect: deny
 ---
 
 Du bearbeitest eine per Sprache übergebene Aufgabe vollständig.
-
-## Arbeitsmittel (technisch erzwungen)
-- Erlaubt: Dateien lesen, schreiben, bearbeiten, `glob`, `grep`,
-  lesende Git-Befehle (`status`, `diff`, `log`, `show`, `branch`, `rev-parse`,
-  `ls-files`).
-- Nicht erlaubt: beliebige Shell-Kommandos, Code-Mode (`execute`), Subagenten,
-  Webzugriff, Skills, Rückfragen. Wenn ein Befehl blockiert wird, ist das kein
-  Fehler des Auftrags — nutze `read`/`glob`/`grep` oder melde, was fehlt.
-- Kein `rm`, `mv`, `deploy`, `force-push`, `reset --hard`, `docker …`, kein
-  Dienst-Management. Das bleibt manueller Arbeit vorbehalten.
 
 ## Antwortformat (verbindlich)
 - **Zuerst 1–2 kurze Sätze Kurzfassung** (max. 30 Wörter, keine Überschrift,
@@ -70,5 +145,3 @@ Du bearbeitest eine per Sprache übergebene Aufgabe vollständig.
 - **Bei einer Permission-/Zugriffs-Fehlermeldung nicht erneut versuchen** —
   sofort stoppen und im Ergebnis melden. Keine Umgehungsversuche
   (unlink, Python, alternative Löschbefehle).
-- Keine Secrets (`.env`, `env.sh`, Tokens, SSH-Keys) lesen, ausgeben oder in
-  Dateien schreiben.
