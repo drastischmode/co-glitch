@@ -22,9 +22,15 @@
 > - **Supabase auf dem VPS:** vollständig und gesund — `auth/v1/health` 200, `rest/v1` 200 mit
 >   Service-Role, `storage/v1/status` 200, Realtime-WebSocket `101`, Edge Functions `hello`/`main`
 >   vorhanden. Die DB ist leer (`public` = 0 Tabellen, 0 Storage-Buckets).
-> - **Client-Dienste (live):** n8n 200 (5 Workflows), Forgejo 200 (9.0.3, **0 User**),
->   Postiz 307 (**0 User**), Uptime Kuma 302 (**0 Monitore**), Dozzle/Beszel/cAdvisor 200,
->   Ollama 200 (Host-Dienst).
+> - **Client-Dienste (live):** n8n 200 (5 Workflows), Forgejo 200 (9.0.3, Admin `easydoesit`),
+>   Postiz 200/307 (Admin angelegt, Login via Cookie), Uptime Kuma 302 (6 Monitore, alle UP),
+>   Dozzle/Beszel/cAdvisor 200, Ollama 200 (Host-Dienst).
+> - **Postiz braucht Temporal:** `TEMPORAL_ADDRESS` zeigt auf den mitgelieferten
+>   `temporal`-Container (Profil `client-extended`). Ohne Temporal crasht das Backend mit
+>   `ECONNREFUSED 7233`, während nginx weiter 502 liefert und der Healthcheck grün bleibt.
+>   Temporal braucht Advanced Visibility (`ENABLE_ES=true` + `temporal-elasticsearch`),
+>   sonst scheitert Postiz an `cannot have more than 3 search attribute of type Text`.
+>   Postiz läuft mit dem `service-large`-Limit (2 GiB); mit 1 GiB kam das Backend nicht hoch.
 > - **VPS-Dienste (live):** 31 Container, Forgejo 200 (Mirror aktiv), n8n 200 (12 Workflows),
 >   Postiz 200/307, Temporal-UI 200, Woodpecker 204 (Agent `easy-ai`), Kuma/Dozzle/Beszel/cAdvisor/
 >   Spotlight 200.

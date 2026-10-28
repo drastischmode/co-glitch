@@ -306,10 +306,88 @@ services:
   # ==========================================
   # POSTIZ - Social Media Scheduling
   # ==========================================
+  # ==========================================
+  # TEMPORAL - Pflicht-Backend fuer Postiz
+  # ==========================================
+  # Postiz v2 verbindet sich beim Start mit Temporal (TEMPORAL_ADDRESS).
+  # Ohne Temporal crasht das Backend mit ECONNREFUSED 7233 und nginx
+  # liefert 502 - der Container-Healthcheck (nginx-Port) bleibt trotzdem
+  # "healthy". Diese beiden Services schliessen die Luecke.
+  temporal-postgresql:
+    image: postgres:16
+    profiles: ["client-extended"]
+    <<: *service-small
+    environment:
+      POSTGRES_USER: temporal
+      POSTGRES_PASSWORD: ${TEMPORAL_DB_PASS}
+      POSTGRES_DB: temporal
+    volumes:
+      - temporal_pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U temporal -d temporal"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    networks:
+      - net-backend
+
+  temporal-elasticsearch:
+    image: elasticsearch:7.17.27
+    profiles: ["client-extended"]
+    <<: *service-large
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - ES_JAVA_OPTS=-Xms512m -Xmx512m
+    volumes:
+      - temporal_es_data:/usr/share/elasticsearch/data
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:9200/_cluster/health >/dev/null"]
+      interval: 20s
+      timeout: 10s
+      retries: 15
+      start_period: 90s
+    networks:
+      - net-backend
+
+  temporal:
+    image: temporalio/auto-setup:1.28.1
+    profiles: ["client-extended"]
+    <<: *service-medium
+    environment:
+      - DB=postgres12
+      - DB_PORT=5432
+      - POSTGRES_USER=temporal
+      - POSTGRES_PWD=${TEMPORAL_DB_PASS}
+      - POSTGRES_SEEDS=temporal-postgresql
+      - BIND_ON_IP=0.0.0.0
+      - TEMPORAL_NAMESPACE=default
+      # Advanced Visibility: ohne ES erlaubt Temporal nur 3 Text-Search-Attribute,
+      # Postiz braucht mehr ("cannot have more than 3 search attribute of type Text").
+      - ENABLE_ES=true
+      - ES_SEEDS=temporal-elasticsearch
+      - ES_VERSION=v7
+    depends_on:
+      temporal-postgresql:
+        condition: service_healthy
+      temporal-elasticsearch:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "temporal", "operator", "cluster", "health", "--address", "127.0.0.1:7233"]
+      interval: 15s
+      timeout: 10s
+      retries: 10
+      start_period: 60s
+    networks:
+      - net-backend
+
   postiz:
     image: ghcr.io/gitroomhq/postiz-app:v2.25.1
     profiles: ["client-extended"]
-    <<: *service-medium
+    # Postiz v2 braucht ~1.5 GB: mit dem 1-GiB-Limit (service-medium) kam das
+    # Backend nicht auf Port 3000 hoch (nginx lieferte 502, Healthcheck gruen).
+    <<: *service-large
     cap_drop: [ALL]
     cap_add: [CHOWN, SETGID, SETUID, DAC_OVERRIDE]
     ports:
@@ -323,6 +401,7 @@ services:
       - FRONTEND_URL=http://localhost:4007
       - NEXT_PUBLIC_BACKEND_URL=http://localhost:4007/api
       - BACKEND_INTERNAL_URL=http://localhost:3000
+      - TEMPORAL_ADDRESS=temporal:7233
       - IS_GENERAL=true
     volumes:
       - postiz_data:/app/data
@@ -330,6 +409,8 @@ services:
       supabase-db:
         condition: service_healthy
       redis:
+        condition: service_healthy
+      temporal:
         condition: service_healthy
     healthcheck:
       test: ["CMD", "node", "-e", "require('net').connect(5000,'127.0.0.1').on('connect',()=>process.exit(0)).on('error',()=>process.exit(1))"]
@@ -493,6 +574,8 @@ services:
       - net-ai
 
 volumes:
+  temporal_pg_data:
+  temporal_es_data:
   supabase_db:
   n8n_data:
   forgejo_data:
