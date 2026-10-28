@@ -1,17 +1,23 @@
 _format_version: "2.1"
 _transform: true
 
-# Kong Declarative Config für Supabase auf Client
-# Template - Keys werden zur Runtime via Admin API gesetzt (siehe supabase-kong-init.sh)
+# Kong Declarative Config für Supabase auf dem Client
+#
+# Wichtig: KEIN key-auth-Plugin. Ein globales key-auth ohne Consumer hat
+# jeden Request mit 401 beantwortet. Die JWT-Prüfung passiert in den
+# Diensten selbst (PostgREST/GoTrue/Storage prüfen `apikey`/`Authorization`
+# gegen JWT_SECRET) — genau wie Envoy im VPS-Stack.
+#
+# Die Upstreams sind Docker-Service-Namen des Client-Stacks.
 
 services:
-  # Auth Service (GoTrue)
+  # Auth (GoTrue)
   - name: supabase-auth
-    url: http://host.docker.internal:9999
+    url: http://auth:9999
     routes:
       - name: auth-route
-        paths:
-          - /auth/v1
+        paths: ["/auth/v1"]
+        strip_path: true
     plugins:
       - name: cors
         config:
@@ -22,75 +28,61 @@ services:
           credentials: true
           max_age: 3600
 
-  # REST Service (PostgREST)
+  # REST (PostgREST)
   - name: supabase-rest
-    url: http://host.docker.internal:3000
+    url: http://rest:3000
     routes:
       - name: rest-route
-        paths:
-          - /rest/v1
+        paths: ["/rest/v1"]
+        strip_path: true
     plugins:
       - name: cors
         config:
           origins: ["*"]
-          methods: [GET, POST, PATCH, DELETE, OPTIONS]
-          headers: [Accept, Authorization, Content-Type, apikey, Prefer]
+          methods: [GET, POST, PUT, PATCH, DELETE, OPTIONS]
+          headers: [Accept, Authorization, Content-Type, apikey, Prefer, Range, X-Client-Info]
+          exposed_headers: [Content-Range, X-Total-Count, Content-Location]
+          credentials: true
+          max_age: 3600
+
+  # Realtime
+  # Realtime v2 leitet den Tenant aus dem Host-Header ab (erstes Label) und
+  # erwartet den WebSocket unter /socket/websocket. Envoy macht im VPS-Stack
+  # genau dasselbe: prefix_rewrite /realtime/v1/ -> /socket/ + host_rewrite.
+  - name: supabase-realtime
+    url: http://realtime:4000/socket
+    routes:
+      - name: realtime-route
+        paths: ["/realtime/v1"]
+        strip_path: true
+    plugins:
+      # Kong 2.8 kennt kein service.host_header -> Host-Header per Transformer.
+      - name: request-transformer
+        config:
+          replace:
+            headers:
+              - "Host:realtime-dev.supabase-realtime"
+      - name: cors
+        config:
+          origins: ["*"]
+          methods: [GET, POST, OPTIONS]
+          headers: [Accept, Authorization, Content-Type, apikey]
+          credentials: true
+          max_age: 3600
+
+  # Storage
+  - name: supabase-storage
+    url: http://storage:5000
+    routes:
+      - name: storage-route
+        paths: ["/storage/v1"]
+        strip_path: true
+    plugins:
+      - name: cors
+        config:
+          origins: ["*"]
+          methods: [GET, POST, PUT, PATCH, DELETE, OPTIONS]
+          headers: [Accept, Authorization, Content-Type, apikey, X-Client-Info, X-Upsert]
           exposed_headers: [Content-Range, X-Total-Count]
           credentials: true
           max_age: 3600
-
-  # Realtime Service
-  - name: supabase-realtime
-    url: http://host.docker.internal:4000
-    routes:
-      - name: realtime-route
-        paths:
-          - /realtime/v1
-    plugins:
-      - name: cors
-        config:
-          origins: ["*"]
-          methods: [GET, POST, OPTIONS]
-          headers: [Accept, Authorization, Content-Type, apikey]
-          credentials: true
-          max_age: 3600
-
-  # Storage Service
-  - name: supabase-storage
-    url: http://host.docker.internal:5000
-    routes:
-      - name: storage-route
-        paths:
-          - /storage/v1
-    plugins:
-      - name: cors
-        config:
-          origins: ["*"]
-          methods: [GET, POST, DELETE, OPTIONS]
-          headers: [Accept, Authorization, Content-Type, apikey]
-          credentials: true
-          max_age: 3600
-
-  # Edge Functions
-  - name: supabase-functions
-    url: http://host.docker.internal:9000
-    routes:
-      - name: functions-route
-        paths:
-          - /functions/v1
-    plugins:
-      - name: cors
-        config:
-          origins: ["*"]
-          methods: [GET, POST, OPTIONS]
-          headers: [Accept, Authorization, Content-Type, apikey]
-          credentials: true
-          max_age: 3600
-
-# Consumers & Key-Auth werden zur Runtime via Admin API gesetzt
-# Siehe: scripts/supabase-kong-init.sh
-plugins:
-  - name: key-auth
-    config:
-      key_names: ["apikey"]
-      hide_credentials: true

@@ -10,6 +10,8 @@
 
 set -euo pipefail
 
+REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
@@ -156,19 +158,28 @@ http_check() {
 http_check "n8n (5678)" "n8n" "http://127.0.0.1:5678/healthz"
 http_check "Forgejo (3002)" "forgejo" "http://127.0.0.1:3002/api/healthz"
 http_check "Postiz (4007)" "postiz" "http://127.0.0.1:4007"
-# Supabase-API: im Client-Stack nicht enthalten (nur supabase-db). Der Kong-
-# Gateway laeuft im Profil `client-supabase-api` und hat ohne echte Backends
-# und ohne key-auth-Consumer nur 401 geliefert -> nicht im Default-Profil.
-if docker ps --filter "label=com.docker.compose.service=supabase-kong" -q 2>/dev/null | grep -q .; then
-    code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 5 http://127.0.0.1:8000/auth/v1/health 2>/dev/null || echo 000)
-    if [ "$code" = "401" ]; then
-        echo -e "${YELLOW}[WARN]${NC} Supabase Kong (8000) laeuft, antwortet aber 401 (kein Consumer/Backend) - Profil client-supabase-api pruefen"
-    else
-        echo -e "${GREEN}[OK]${NC} Supabase Kong (8000) HTTP $code"
+# Supabase-API (Kong -> auth/rest/storage/realtime). Geprueft wird mit dem
+# Anon-Key aus der .env, damit 401 durch fehlenden Header nicht als Fehler zaehlt.
+supa_check() {
+    local name="$1" path="$2"
+    local key
+    key=$(grep -m1 '^ANON_KEY=' "$REPO_ROOT/.env" 2>/dev/null | cut -d= -f2-)
+    if [ -z "$key" ]; then
+        echo -e "${YELLOW}[WARN]${NC} $name (ANON_KEY fehlt in .env)"
+        return 0
     fi
-else
-    echo -e "${BLUE}[SKIP]${NC} Supabase API (nicht im Client-Profil; laeuft auf dem VPS)"
-fi
+    local code
+    code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 6 -H "apikey: $key" "http://127.0.0.1:8000$path" 2>/dev/null || echo 000)
+    if [ "$code" = "200" ] || [ "$code" = "204" ]; then
+        echo -e "${GREEN}[OK]${NC} $name ($code)"
+    else
+        echo -e "${RED}[FAIL]${NC} $name (HTTP $code)"
+        CRITICAL_FAIL=$((CRITICAL_FAIL+1))
+    fi
+}
+supa_check "Supabase Auth" "/auth/v1/health"
+supa_check "Supabase REST" "/rest/v1/"
+supa_check "Supabase Storage" "/storage/v1/status"
 http_check "Uptime Kuma (3001)" "uptime-kuma" "http://127.0.0.1:3001/api/status"
 http_check "Dozzle (8082)" "dozzle" "http://127.0.0.1:8082/healthz"
 http_check "Beszel Hub (8090)" "beszel" "http://127.0.0.1:8090/system/health"

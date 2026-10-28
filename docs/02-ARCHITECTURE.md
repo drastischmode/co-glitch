@@ -14,11 +14,14 @@
 
 > 📏 **Messstand 2026-10-28 (live, nicht aus dieser Doku abgeleitet):** Die Komponenten-Matrix
 > unten beschreibt das **Zielbild**, nicht den heutigen Stand. Gemessen:
-> - **Supabase auf dem Client:** nur `supabase-db` (Postgres, wird von Forgejo und Postiz genutzt).
->   `supabase-auth`, `-rest`, `-storage`, `-realtime`, `-functions`, `-meta`, `-imgproxy` sind im
->   Client-Compose **nicht definiert**. Der `supabase-kong`-Gateway hatte keine Upstreams
->   (`host.docker.internal:9999/3000/5000` unbelegt) und ein globales `key-auth` ohne Consumer →
->   **jeder** Request `401`. Er ist deshalb aus dem Default-Profil in `client-supabase-api` verschoben.
+> - **Supabase auf dem Client: vollständig** (seit 2026-10-28). `supabase-kong` (Gateway) routet auf
+>   `auth` (GoTrue), `rest` (PostgREST), `storage` + `imgproxy` und `realtime`. JWT-Prüfung macht jeder
+>   Dienst selbst — **kein** `key-auth` im Gateway. Verifiziert: `auth/v1/health` 200, `auth/v1/settings`
+>   200, `rest/v1/` 200 (anon + service_role), `storage/v1/status` 200, Storage-Bucket anlegen/hochladen/
+>   öffentlich lesen ok, Realtime-WebSocket **101**, Signup + Login liefern ein JWT, REST mit User-JWT 200.
+>   Zwei Fallstricke: (a) `SUPABASE_DB_PASS` enthielt ein `"` und zerlegte `.env`/URLs → auf einen
+>   URL-sicheren Wert rotiert; (b) Realtime leitet den Tenant aus dem **Host-Header** ab (`realtime-dev`)
+>   und erwartet `/socket/websocket` — im Kong per `request-transformer` + Service-Pfad `/socket` gelöst.
 > - **Supabase auf dem VPS:** vollständig und gesund — `auth/v1/health` 200, `rest/v1` 200 mit
 >   Service-Role, `storage/v1/status` 200, Realtime-WebSocket `101`, Edge Functions `hello`/`main`
 >   vorhanden. Die DB ist leer (`public` = 0 Tabellen, 0 Storage-Buckets).
@@ -63,7 +66,7 @@
 | **Social Media** | | |
 | Postiz | ✅ | ❌ |
 | **Backend / DB** | | |
-| Supabase (Postgres, Kong, Auth, REST, Realtime, Storage, Functions) | 🟡 nur Postgres (s. Messstand) | ✅ vollständig |
+| Supabase (Postgres, Kong, Auth, REST, Realtime, Storage) | ✅ | ✅ |
 | **Monitoring** | | |
 | Uptime Kuma | ✅ | ❌ |
 | Beszel Hub + Agent | ✅ | ❌ |

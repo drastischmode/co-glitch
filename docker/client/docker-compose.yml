@@ -129,8 +129,7 @@ services:
   # ==========================================
   supabase-db:
     image: supabase/postgres:15.8.1.060
-    # auch im API-Profil, damit `--profile client-supabase-api` allein startet
-    profiles: ["client", "client-supabase-api"]
+    profiles: ["client"]
     <<: *service-large
     cap_drop: [ALL]
     cap_add: [CHOWN, SETGID, SETUID, DAC_OVERRIDE, FOWNER]
@@ -151,19 +150,152 @@ services:
       - net-backend
 
   # ==========================================
-  # SUPABASE KONG - API Gateway (NICHT im Default-Profil)
+  # SUPABASE API (auth, rest, realtime, storage) + KONG-Gateway
   # ==========================================
-  # Messstand 2026-10-28: Der Client-Stack enthaelt nur `supabase-db`; die
-  # Upstreams dieses Gateways (auth :9999, rest :3000, storage :5000,
-  # realtime, functions) existieren hier nicht. Zusaetzlich haengt ein
-  # globales key-auth-Plugin ohne Consumer an allen Routen -> jeder Request
-  # antwortet 401. Ein 401-Gateway im Default-Profil ist eine Fehlerquelle
-  # bei Demos, deshalb eigenes Profil. Die Supabase-API laeuft auf dem VPS.
-  # Nur starten, wenn hier echte Supabase-API-Services laufen:
-  #   docker compose --profile client-supabase-api up -d
+  # Laeuft komplett auf dem Client. Die Backends sind Docker-Service-Namen,
+  # JWT-Pruefung macht jeder Dienst selbst (kein key-auth im Gateway).
+  # ACHTUNG: ${...} wird nur mit `--env-file .env` aufgeloest (Makefile tut das).
+  auth:
+    image: supabase/gotrue:v2.196.0
+    profiles: ["client"]
+    <<: *service-small
+    environment:
+      - GOTRUE_API_HOST=0.0.0.0
+      - GOTRUE_API_PORT=9999
+      - API_EXTERNAL_URL=http://localhost:8000
+      - GOTRUE_DB_DRIVER=postgres
+      - GOTRUE_DB_DATABASE_URL=postgres://supabase_auth_admin:${SUPABASE_DB_PASS}@supabase-db:5432/postgres
+      - GOTRUE_SITE_URL=http://localhost:8000
+      - GOTRUE_URI_ALLOW_LIST=*
+      - GOTRUE_DISABLE_SIGNUP=false
+      - GOTRUE_JWT_ADMIN_ROLES=service_role
+      - GOTRUE_JWT_AUD=authenticated
+      - GOTRUE_JWT_DEFAULT_GROUP_NAME=authenticated
+      - GOTRUE_JWT_EXP=3600
+      - GOTRUE_JWT_SECRET=${JWT_SECRET}
+      - GOTRUE_JWT_ISSUER=http://localhost:8000/auth/v1
+      - GOTRUE_EXTERNAL_EMAIL_ENABLED=true
+      - GOTRUE_EXTERNAL_PHONE_ENABLED=false
+      - GOTRUE_MAILER_AUTOCONFIRM=true
+      - GOTRUE_SMTP_ADMIN_EMAIL=admin@localhost
+      - GOTRUE_SMTP_HOST=smtp.invalid
+      - GOTRUE_SMTP_PORT=587
+      - GOTRUE_SMTP_USER=smtp
+      - GOTRUE_SMTP_PASS=smtp
+      - GOTRUE_SMTP_SENDER_NAME=co-glitch
+    depends_on:
+      supabase-db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://127.0.0.1:9999/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    networks:
+      - net-backend
+
+  rest:
+    image: postgrest/postgrest:v14.17
+    profiles: ["client"]
+    <<: *service-small
+    environment:
+      - PGRST_DB_URI=postgres://authenticator:${SUPABASE_DB_PASS}@supabase-db:5432/postgres
+      - PGRST_DB_SCHEMAS=public,storage,graphql_public
+      - PGRST_DB_ANON_ROLE=anon
+      - PGRST_JWT_SECRET=${JWT_SECRET}
+      - PGRST_DB_USE_LEGACY_GUCS=false
+      - PGRST_APP_SETTINGS_JWT_EXP=3600
+    depends_on:
+      supabase-db:
+        condition: service_healthy
+    networks:
+      - net-backend
+
+  realtime:
+    image: supabase/realtime:v2.134.10
+    profiles: ["client"]
+    <<: *service-medium
+    # Tenant = erstes Label des Hostnamens (wie im VPS-Stack: realtime-dev)
+    hostname: realtime-dev.supabase-realtime
+    environment:
+      - PORT=4000
+      - DB_HOST=supabase-db
+      - DB_PORT=5432
+      - DB_USER=supabase_admin
+      - DB_PASSWORD=${SUPABASE_DB_PASS}
+      - DB_NAME=postgres
+      - DB_AFTER_CONNECT_QUERY=SET search_path TO _realtime
+      - DB_ENC_KEY=supabaserealtime
+      - API_JWT_SECRET=${JWT_SECRET}
+      - SECRET_KEY_BASE=${REALTIME_SECRET_KEY_BASE}
+      - METRICS_JWT_SECRET=${JWT_SECRET}
+      - ERL_AFLAGS=-proto_dist inet_tcp
+      - DNS_NODES=''
+      - RLIMIT_NOFILE=10000
+      - APP_NAME=realtime
+      - SEED_SELF_HOST=true
+      - RUN_JANITOR=true
+    depends_on:
+      supabase-db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf -H 'Host: realtime-dev.supabase-realtime' http://127.0.0.1:4000/api/tenants/realtime-dev/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 40s
+    networks:
+      - net-backend
+
+  imgproxy:
+    image: darthsim/imgproxy:v3.31.4
+    profiles: ["client"]
+    <<: *service-small
+    environment:
+      - IMGPROXY_BIND=:5001
+      - IMGPROXY_LOCAL_FILESYSTEM_ROOT=/
+      - IMGPROXY_USE_ETAG=true
+      - IMGPROXY_MAX_SRC_RESOLUTION=50
+    networks:
+      - net-backend
+
+  storage:
+    image: supabase/storage-api:v1.74.0
+    profiles: ["client"]
+    <<: *service-small
+    environment:
+      - ANON_KEY=${ANON_KEY}
+      - SERVICE_KEY=${SERVICE_ROLE_KEY}
+      - POSTGREST_URL=http://rest:3000
+      - AUTH_JWT_SECRET=${JWT_SECRET}
+      - DATABASE_URL=postgres://supabase_storage_admin:${SUPABASE_DB_PASS}@supabase-db:5432/postgres
+      - STORAGE_BACKEND=file
+      - FILE_STORAGE_BACKEND_PATH=/var/lib/storage
+      - TENANT_ID=stub
+      - REGION=stub
+      - GLOBAL_S3_BUCKET=stub
+      - ENABLE_IMAGE_TRANSFORMATION=true
+      - IMGPROXY_URL=http://imgproxy:5001
+    volumes:
+      - storage_data:/var/lib/storage
+    depends_on:
+      supabase-db:
+        condition: service_healthy
+      rest:
+        condition: service_started
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://127.0.0.1:5000/status"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    networks:
+      - net-backend
+
   supabase-kong:
     image: kong:2.8.1
-    profiles: ["client-supabase-api"]
+    profiles: ["client"]
     <<: *service-medium
     user: "kong:kong"
     cap_drop: [ALL]
@@ -179,6 +311,14 @@ services:
     depends_on:
       supabase-db:
         condition: service_healthy
+      auth:
+        condition: service_started
+      rest:
+        condition: service_started
+      storage:
+        condition: service_started
+      realtime:
+        condition: service_started
     healthcheck:
       test: ["CMD", "kong", "health"]
       interval: 30s
@@ -574,6 +714,7 @@ services:
       - net-ai
 
 volumes:
+  storage_data:
   temporal_pg_data:
   temporal_es_data:
   supabase_db:
