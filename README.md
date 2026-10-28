@@ -11,6 +11,7 @@
 [![Cost](https://img.shields.io/badge/Cost-0%E2%82%AC%20%2F%20month-blue?style=flat-square)](#)
 [![Philosophy](https://img.shields.io/badge/Philosophy-Zero%20Trust%20%7C%20Tailnet--only-orange?style=flat-square)](#)
 [![AI](https://img.shields.io/badge/AI-4--Provider%20Fallback-purple?style=flat-square)](#)
+[![CI](http://oracle-vps.taile5efea.ts.net:8000/api/badges/easydoesit/co-glitch/status.svg?branch=v1.0.4-pending-work)](http://oracle-vps.taile5efea.ts.net:8000/repos/1)
 
 **co-glitch** is your local, fully automated infrastructure platform. Inspired by comprehensive architectural concepts for autonomous AI systems, it packs the entire toolbox onto your Linux client (or optionally a VPS). It provides a hardened, offline-ready development environment that seamlessly bridges to your cloud stack when you're ready to deploy. No vendor lock-in, no hidden costs. Just a precise tool that works.
 
@@ -98,6 +99,7 @@ Swiss quality means: No empty promises.
 *   [08-AI-PROVIDER.md](docs/08-AI-PROVIDER.md) – The fallback strategy in detail
 *   [09-VOICE-EXTENSIONS.md](docs/09-VOICE-EXTENSIONS.md) – Voice agent extensions
 *   *(New)* `10-DEVELOPMENT.md` – Local development workflow (GitHub, Vercel, Cloudflare, Supabase sync)
+*   [ci-woodpecker.md](docs/ci-woodpecker.md) – CI split: VPS controls, laptop builds (no build data on the server)
 
 ---
 
