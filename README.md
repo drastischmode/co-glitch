@@ -97,9 +97,9 @@ Swiss quality means: No empty promises.
 *   [03-TROUBLESHOOTING.md](docs/03-TROUBLESHOOTING.md) – First aid for problems
 *   [07-SECURITY.md](docs/07-SECURITY.md) – Hardening, secret rotation, zero trust
 *   [08-AI-PROVIDER.md](docs/08-AI-PROVIDER.md) – The fallback strategy in detail
-*   [09-VOICE-EXTENSIONS.md](docs/09-VOICE-EXTENSIONS.md) – Voice agent extensions
 *   *(New)* `10-DEVELOPMENT.md` – Local development workflow (GitHub, Vercel, Cloudflare, Supabase sync)
 *   [11-CI-WOODPECKER.md](docs/11-CI-WOODPECKER.md) – CI split: VPS controls, laptop builds (no build data on the server)
+*   [12-SOPS-SECRETS.md](docs/12-SOPS-SECRETS.md) – Secrets mit sops + age (gemeinsamer Key, Backup-Konvention)
 
 ---
 
