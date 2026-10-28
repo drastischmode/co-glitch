@@ -99,7 +99,7 @@ Swiss quality means: No empty promises.
 *   [08-AI-PROVIDER.md](docs/08-AI-PROVIDER.md) – The fallback strategy in detail
 *   [09-VOICE-EXTENSIONS.md](docs/09-VOICE-EXTENSIONS.md) – Voice agent extensions
 *   *(New)* `10-DEVELOPMENT.md` – Local development workflow (GitHub, Vercel, Cloudflare, Supabase sync)
-*   [ci-woodpecker.md](docs/ci-woodpecker.md) – CI split: VPS controls, laptop builds (no build data on the server)
+*   [11-CI-WOODPECKER.md](docs/11-CI-WOODPECKER.md) – CI split: VPS controls, laptop builds (no build data on the server)
 
 ---
 
